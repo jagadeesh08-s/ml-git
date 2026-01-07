@@ -1,0 +1,15 @@
+{
+    "circuit": {
+        "numQubits": 1,
+        "gates": [
+            {
+                "name": "H",
+                "qubits": [
+                    0
+                ]
+            }
+        ]
+    },
+    "backend": "local",
+    "shots": 1024
+}

@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+qiskit
+qiskit-aer
+qiskit-ibm-runtime
+python-multipart
+kagglehub
+numpy
+scipy
+pydantic
+slowapi
+python-dotenv
+aiohttp

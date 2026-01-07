@@ -1,0 +1,276 @@
+import React, { useRef, useMemo, useState } from 'react';
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls, Sphere, Line, Text, Html } from '@react-three/drei';
+import * as THREE from 'three';
+
+interface BlochVector {
+  x: number;
+  y: number;
+  z: number;
+}
+
+
+interface BlochSphereProps {
+  vector?: BlochVector;
+  purity?: number;
+  size?: number;
+  className?: string;
+  showAxes?: boolean;
+  showGrid?: boolean;
+  interactive?: boolean;
+  highlightedAxis?: 'x' | 'y' | 'z' | null;
+}
+
+// --- Internal Components ---
+
+const ProbabilityChart: React.FC<{ z: number }> = ({ z }) => {
+  // Calculate Basis Probabilities
+  // P(|0>) = (1 + z) / 2
+  // P(|1>) = (1 - z) / 2
+  // Ensure we define standard range [-1, 1] -> [0, 1]
+  const p0 = Math.max(0, Math.min(1, (1 + z) / 2)) * 100;
+  const p1 = Math.max(0, Math.min(1, (1 - z) / 2)) * 100;
+
+  return (
+    <div className="w-48 bg-black/60 backdrop-blur-md rounded-lg p-4 border border-cyan-500/30 text-xs font-mono transition-transform duration-200">
+      <h3 className="text-cyan-400 mb-3 font-bold flex items-center justify-between">
+        <span>Probabilities</span>
+        <span className="text-[10px] opacity-70">(Z-Basis)</span>
+      </h3>
+
+      <div className="space-y-4">
+        {/* |0> State */}
+        <div className="group">
+          <div className="flex justify-between mb-1 text-gray-300">
+            <span>|0⟩</span>
+            <span>{p0.toFixed(1)}%</span>
+          </div>
+          <div className="w-full bg-gray-800/50 rounded-full h-2 overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-cyan-600 to-blue-500 rounded-full transition-all duration-500 ease-out group-hover:from-cyan-400 group-hover:to-blue-400 shadow-[0_0_10px_rgba(34,211,238,0.4)]"
+              style={{ width: `${p0}%` }}
+            />
+          </div>
+        </div>
+
+        {/* |1> State */}
+        <div className="group">
+          <div className="flex justify-between mb-1 text-gray-300">
+            <span>|1⟩</span>
+            <span>{p1.toFixed(1)}%</span>
+          </div>
+          <div className="w-full bg-gray-800/50 rounded-full h-2 overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-purple-600 to-pink-500 rounded-full transition-all duration-500 ease-out group-hover:from-purple-400 group-hover:to-pink-400 shadow-[0_0_10px_rgba(168,85,247,0.4)]"
+              style={{ width: `${p1}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 pt-3 border-t border-white/10 flex justify-between text-[10px] text-gray-400">
+        <span>Computational Basis</span>
+      </div>
+    </div>
+  );
+};
+
+const QuantumStateMarker: React.FC<{ vector: BlochVector; isAtDefault: boolean }> = ({ vector, isAtDefault }) => {
+  // "Q-Sphere" style marker (balloon/point on surface)
+  // We place it exactly on the surface at the vector direction
+
+  // Normalize to surface
+  const len = Math.sqrt(vector.x ** 2 + vector.y ** 2 + vector.z ** 2);
+  const surfaceFactor = len > 0 ? 1 / len : 0;
+  const surfaceX = vector.x * surfaceFactor;
+  const surfaceY = vector.y * surfaceFactor;
+  const surfaceZ = vector.z * surfaceFactor;
+
+  // Determine Phase Color (Simple approximation based on x,y plane angle)
+  // standard phi = atan2(y, x)
+  // Map -PI..PI to a color wheel hue (hsl)
+  const phase = Math.atan2(vector.y, vector.x); // -PI to PI
+  // Map to 0-360
+  const hue = ((phase * 180 / Math.PI) + 360) % 360;
+
+  // If predominantly |0> or |1> (Z axis), phase color is less relevant visually but technically undefined/0
+  // We'll just use the hue always for the marker color to mimic Q-sphere phase coloring
+  const color = `hsl(${hue}, 100%, 60%)`;
+
+  return (
+    <group>
+      {/* The Main Vector Arrow */}
+      <Line
+        points={[[0, 0, 0], [vector.x, vector.y, vector.z]]}
+        color={color} // Use phase color for the line too? 
+        // Or stick to Cyberpunk Cyan? Let's use Cyan for the rod, Phase color for the tip
+        // color="#00ffff"
+        lineWidth={3}
+        transparent
+        opacity={0.8}
+      />
+
+      {/* The "Q-Sphere" Marker on the surface */}
+      <mesh position={[surfaceX, surfaceY, surfaceZ]}>
+        <sphereGeometry args={[0.06, 32, 32]} />
+        <meshPhysicalMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={2}
+          clearcoat={1}
+          roughness={0.1}
+          metalness={0.1}
+        />
+      </mesh>
+
+      {/* Connecting line to surface if mixed state (inner) */}
+      {len < 0.99 && (
+        <Line
+          points={[[vector.x, vector.y, vector.z], [surfaceX, surfaceY, surfaceZ]]}
+          color={color}
+          lineWidth={1}
+          dashed
+          dashScale={20}
+        />
+      )}
+    </group>
+  );
+};
+
+// Component for coordinate axes
+const CoordinateAxes: React.FC<{ highlightedAxis?: 'x' | 'y' | 'z' | null }> = ({ highlightedAxis }) => {
+  const getAxisColor = (axis: 'x' | 'y' | 'z') => {
+    if (highlightedAxis === axis) return '#ffff00';
+    return '#444'; // Darker, subtler axes to match "clean" look
+  };
+
+  return (
+    <group>
+      {/* X-axis */}
+      <Line points={[[-1.1, 0, 0], [1.1, 0, 0]]} color={getAxisColor('x')} lineWidth={1} transparent opacity={0.5} />
+      <Text position={[1.2, 0, 0]} fontSize={0.1} color={getAxisColor('x')}>X</Text>
+      <Text position={[0.6, 0.1, 0]} fontSize={0.08} color="#aaa">|+⟩</Text>
+
+      {/* Y-axis */}
+      <Line points={[[0, -1.1, 0], [0, 1.1, 0]]} color={getAxisColor('y')} lineWidth={1} transparent opacity={0.5} />
+      <Text position={[0, 1.2, 0]} fontSize={0.1} color={getAxisColor('y')}>Y</Text>
+      <Text position={[0.1, 0.6, 0]} fontSize={0.08} color="#aaa">|+i⟩</Text>
+
+      {/* Z-axis */}
+      <Line points={[[0, 0, -1.1], [0, 0, 1.1]]} color={getAxisColor('z')} lineWidth={1} transparent opacity={0.5} />
+      <Text position={[0, 0, 1.2]} fontSize={0.1} color={getAxisColor('z')}>Z</Text>
+      <Text position={[0.1, 0, 1.05]} fontSize={0.08} color="#aaa">|0⟩</Text>
+      <Text position={[0.1, 0, -1.05]} fontSize={0.08} color="#aaa">|1⟩</Text>
+    </group>
+  );
+};
+
+// Main Bloch Sphere component
+const BlochSphere3D: React.FC<BlochSphereProps> = ({
+  vector = { x: 0, y: 0, z: 1 },
+  purity = 1,
+  className = "",
+  showAxes = true,
+  interactive = true,
+  highlightedAxis = null
+}) => {
+  const [hovered, setHovered] = useState(false);
+
+  // Vector Processing
+  const displayVector = useMemo(() => {
+    const rawLen = Math.sqrt(vector.x ** 2 + vector.y ** 2 + vector.z ** 2);
+    if (rawLen < 0.001) return { x: 0, y: 0, z: 0 };
+    // Clamp
+    const scale = rawLen > 1 ? 1 / rawLen : 1;
+    return { x: vector.x * scale, y: vector.y * scale, z: vector.z * scale };
+  }, [vector]);
+
+  const isAtDefault = Math.abs(vector.x) < 0.01 && Math.abs(vector.y) < 0.01 && Math.abs(vector.z - 1) < 0.01;
+
+  return (
+    <div
+      className={`relative rounded-xl overflow-hidden bg-gradient-to-b from-[#0a0a1a] to-[#000] border border-white/5 shadow-2xl group ${className}`}
+      style={{
+        width: '100%',
+        height: '100%',
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {/* 2. PROBABILITIES BAR CHART (Hover Only) */}
+      <div className="absolute top-4 left-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none group-hover:pointer-events-auto">
+        <ProbabilityChart z={displayVector.z} />
+      </div>
+
+      {/* 3. 3D SCENE ("Mix of bloch and image") */}
+      <Canvas
+        camera={{ position: [3, 2, 4], fov: 45 }}
+        gl={{ antialias: true, alpha: true }}
+      >
+        <ambientLight intensity={0.5} />
+        <pointLight position={[10, 10, 10]} intensity={1} color="#4fc3f7" />
+        <pointLight position={[-10, -10, -10]} intensity={0.5} color="#a855f7" />
+
+        {showAxes && <CoordinateAxes highlightedAxis={highlightedAxis} />}
+
+        {/* --- SPHERE AESTHETICS (Glassy look) --- */}
+        <group>
+          {/* Wireframe - subtle */}
+          <mesh>
+            <sphereGeometry args={[1, 32, 24]} />
+            <meshBasicMaterial
+              color="#334155" // Slate-700
+              wireframe
+              transparent
+              opacity={0.15}
+            />
+          </mesh>
+
+          {/* Glass Surface - inner glow */}
+          <mesh>
+            <sphereGeometry args={[0.99, 64, 64]} />
+            <meshPhysicalMaterial
+              color="#ffffff"
+              transmission={0.9} // Glass
+              opacity={0.3}
+              transparent
+              roughness={0.1}
+              metalness={0.1}
+              clearcoat={1}
+              thickness={1}
+            />
+          </mesh>
+
+          {/* Equator Line */}
+          <Line
+            points={new Array(65).fill(0).map((_, i) => {
+              const angle = (i / 64) * Math.PI * 2;
+              return [Math.cos(angle), Math.sin(angle), 0] as [number, number, number];
+            })}
+            color="#ffffff"
+            lineWidth={1}
+            transparent
+            opacity={0.3}
+          />
+        </group>
+
+        {/* State Marker & Vector */}
+        <QuantumStateMarker vector={displayVector} isAtDefault={isAtDefault} />
+
+        {interactive && <OrbitControls enablePan={false} maxDistance={10} minDistance={2} />}
+      </Canvas>
+
+      {/* Simple Phase Legend Overlay */}
+      <div className="absolute bottom-4 right-4 text-[10px] text-gray-500 font-mono flex flex-col items-end">
+        <div className="flex items-center gap-2 mb-1">
+          <span>Phase</span>
+          <div className="w-16 h-2 rounded-full bg-gradient-to-r from-red-500 via-green-500 to-blue-500 opacity-70"></div>
+        </div>
+        <div>Drag to Rotate • Scroll to Zoom</div>
+      </div>
+    </div>
+  );
+};
+
+export default BlochSphere3D;
+export type { BlochVector };
