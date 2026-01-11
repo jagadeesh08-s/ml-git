@@ -497,7 +497,19 @@ qc = QuantumCircuit(${circuit.numQubits})
 
       const job = await submitJob(ibmCircuit, 1024); // Default 1024 shots
 
-      toast.success(`Job submitted! Running on ${job.backendId}. This may take a few minutes...`);
+
+
+      // Check if we received immediate theoretical results (from our new backend logic)
+      if (job.result?.qubitResults && job.isTheoretical) {
+        setReducedStates(job.result.qubitResults);
+        toast.info("Job submitted to IBM Quantum! Displaying theoretical prediction while waiting for hardware results...", {
+          duration: 5000
+        });
+      } else {
+        toast.success(`Job submitted! Running on ${job.backendId}. This may take a few minutes...`);
+      }
+
+      setIsSimulating(true); // Keep 'Running...' indicator active during polling
 
       // Poll for job completion
       const pollForCompletion = async () => {
@@ -555,11 +567,69 @@ qc = QuantumCircuit(${circuit.numQubits})
                 } catch (e) {
                   console.error("Failed to map IBM results to visualization:", e);
                 }
+              } else {
+                // If qubitResults are missing (standard hardware execution), derive visualization from counts
+                // We can only visualize the Z-projection (population), not full state/phase
+                // Construct simplified reduced states based on P(0) vs P(1)
+                try {
+                  const counts = result.result.counts as Record<string, number>;
+                  const shots = result.shots;
+                  const numQubits = currentCircuit.numQubits;
+
+                  // 1. Calculate P(0) for each qubit
+                  // Keys are bitstrings like "01", "11". IBM uses little-endian (qubit 0 is rightmost)
+                  const p0 = new Array(numQubits).fill(0);
+
+                  Object.entries(counts).forEach(([bitstring, count]) => {
+                    // bitstring length may vary if leading zeros omitted? usually fixed length
+                    // Normalize length
+                    const bits = bitstring.padStart(numQubits, '0').split('').reverse(); // Reverse to match qubit index (0 is rightmost char)
+
+                    bits.forEach((bit, qIdx) => {
+                      if (bit === '0' && qIdx < numQubits) {
+                        p0[qIdx] += count;
+                      }
+                    });
+                  });
+
+                  const derivedStates = p0.map((countZero, idx) => {
+                    const prob0 = countZero / shots;
+                    const prob1 = 1 - prob0;
+                    const z = prob0 - prob1; // +1 for |0>, -1 for |1>
+
+                    // Create a diagonal density matrix representing this mixed state
+                    // [[prob0, 0], [0, prob1]]
+                    const matrix = [
+                      [{ real: prob0, imag: 0 }, { real: 0, imag: 0 }],
+                      [{ real: 0, imag: 0 }, { real: prob1, imag: 0 }]
+                    ];
+
+                    return {
+                      matrix,
+                      purity: prob0 * prob0 + prob1 * prob1, // Purity of diagonal mixture
+                      blochVector: { x: 0, y: 0, z },
+                      reducedRadius: Math.abs(z), // Length along Z
+                      isEntangled: false, // Cannot detect entanglement from marginals alone
+                      concurrence: 0,
+                      entanglement: 0,
+                      vonNeumannEntropy: -1 * (prob0 * Math.log2(prob0 + 1e-10) + prob1 * Math.log2(prob1 + 1e-10)),
+                      witnessValue: 0
+                    };
+                  });
+
+                  setReducedStates(derivedStates);
+                  toast.success("Visualization updated with IBM measurement results!");
+
+                } catch (e) {
+                  console.error("Error deriving states from counts:", e);
+                }
               }
 
               toast.success('IBM Quantum simulation completed!');
+              setIsSimulating(false);
             } else if (result.status === 'failed') {
               toast.error(`IBM Quantum job failed: ${result.error || 'Unknown error'}`);
+              setIsSimulating(false);
             } else if (result.status === 'running' || result.status === 'queued') {
               // Job still running, continue polling
               setTimeout(pollForCompletion, 5000);
@@ -580,6 +650,7 @@ qc = QuantumCircuit(${circuit.numQubits})
     } catch (error) {
       console.error('IBM simulation error:', error);
       toast.error('IBM Quantum simulation failed');
+      setIsSimulating(false);
     }
   };
 

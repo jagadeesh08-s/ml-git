@@ -13,8 +13,8 @@
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
     "backend:install": "cd backend && pip install -r requirements.txt",
-    "backend:dev": "cd backend && python -m uvicorn main:app --reload --port 3003",
-    "backend:start": "cd backend && python -m uvicorn main:app --host 0.0.0.0 --port 3003",
+    "backend:dev": "cd backend && python -m uvicorn main:app --reload --port 3005",
+    "backend:start": "cd backend && python -m uvicorn main:app --host 0.0.0.0 --port 3005",
     "python:install": "cd backend && pip install -r requirements.txt",
     "full:dev": "concurrently \"npm run dev\" \"npm run backend:dev\"",
     "full:install": "npm install && npm run backend:install"

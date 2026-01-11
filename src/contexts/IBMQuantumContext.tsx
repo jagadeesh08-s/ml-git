@@ -33,6 +33,7 @@ export interface QuantumJob {
   error?: string;
   progress: number;
   estimatedTime?: number;
+  isTheoretical?: boolean;
 }
 
 interface IBMQuantumContextType {
@@ -45,7 +46,7 @@ interface IBMQuantumContextType {
   backends: IBMQuantumBackend[];
   selectedBackend: IBMQuantumBackend | null;
   setSelectedBackend: (backend: IBMQuantumBackend | null) => void;
-  refreshBackends: () => Promise<void>;
+  refreshBackends: (token?: string | null) => Promise<boolean>;
 
   // Jobs
   jobs: QuantumJob[];
@@ -58,6 +59,8 @@ interface IBMQuantumContextType {
   isLoading: boolean;
   error: string | null;
   isFallback: boolean;
+  isLocked: boolean;
+  setIsLocked: (locked: boolean) => void;
 }
 
 const IBMQuantumContext = createContext<IBMQuantumContextType | undefined>(undefined);
@@ -84,6 +87,7 @@ export const IBMQuantumProvider: React.FC<IBMQuantumProviderProps> = ({ children
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFallback, setIsFallback] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
 
   const isAuthenticated = !!token;
 
@@ -96,18 +100,18 @@ export const IBMQuantumProvider: React.FC<IBMQuantumProviderProps> = ({ children
     }
   };
 
-  const refreshBackends = async (currentToken: string | null = token) => {
+  const refreshBackends = async (currentToken: string | null = token): Promise<boolean> => {
     console.log("refreshBackends called with token:", currentToken ? "Token exists" : "No token");
-    if (!currentToken) return;
+    // Allowed to run without token to fetch local backends
 
     setIsLoading(true);
     setError(null);
 
     try {
-      const url = `${import.meta.env.VITE_API_BASE_URL}/api/quantum/backends?token=${currentToken}`;
+      const url = `${import.meta.env.VITE_API_BASE_URL}/api/quantum/backends?token=${currentToken || ''}`;
       console.log("Fetching backends from:", url);
 
-      // Call the backend API to get real IBM Quantum backends
+      // Call the backend API
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -141,38 +145,66 @@ export const IBMQuantumProvider: React.FC<IBMQuantumProviderProps> = ({ children
 
       setBackends(transformedBackends);
 
-      // Auto-select first available backend
-      const availableBackend = transformedBackends.find(b => b.status === 'online');
-      if (availableBackend && !selectedBackend) {
-        setSelectedBackend(availableBackend);
+      // Auto-select best available backend
+      if (!selectedBackend || !isLocked) {
+        // Priority: 1. Online IBM Hardware, 2. Online IBM Simulator, 3. Online Local Simulator
+        let bestBackend = transformedBackends.find(b => b.status === 'online' && b.type === 'hardware');
+
+        if (!bestBackend) {
+          bestBackend = transformedBackends.find(b => b.status === 'online' && b.type === 'simulator' && !b.id.includes('local'));
+        }
+
+        if (!bestBackend) {
+          bestBackend = transformedBackends.find(b => b.status === 'online');
+        }
+
+        if (bestBackend) {
+          console.log("Auto-selecting backend:", bestBackend.name);
+          setSelectedBackend(bestBackend);
+          setIsLocked(true); // Lock the selection automatically
+          toast.success(`Automatically connected to ${bestBackend.name}`);
+        }
       }
 
       if (data.isFallback) {
         setIsFallback(true);
-        toast.warning('IBM Connection Failed: Showing offline simulators');
-        setError('Connection failed - Using fallback simulators');
+        if (currentToken) {
+          const detailedError = data.error || 'Connection failed';
+          console.error("Backend returned error:", detailedError);
+          toast.warning(`IBM Connection Failed: ${detailedError}`);
+          setError(`Connection failed: ${detailedError}`);
+          return false; // Failed to connect to IBM
+        }
       } else {
         setIsFallback(false);
-        toast.success('IBM Quantum backends refreshed');
+        if (currentToken) {
+          toast.success('IBM Quantum backends refreshed');
+        }
       }
+
+      // If we have a token and no error, it's successful authentication
+      return !data.error && (!currentToken || !data.isFallback);
+
     } catch (err) {
       console.error("Error refreshing backends:", err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to refresh backends';
       setError(errorMessage);
       toast.error(errorMessage);
+      return false;
     } finally {
       setIsLoading(false);
     }
   };
 
   const submitJob = async (circuit: any, shots: number, backendId?: string): Promise<QuantumJob> => {
-    if (!isAuthenticated) {
-      throw new Error('Not authenticated with IBM Quantum');
-    }
-
+    // Allow local submission without auth, but block IBM backends
     const targetBackend = backendId ? backends.find(b => b.id === backendId) : selectedBackend;
     if (!targetBackend) {
       throw new Error('No backend selected');
+    }
+
+    if (targetBackend.type === 'hardware' && !isAuthenticated) {
+      throw new Error('Not authenticated with IBM Quantum');
     }
 
     setIsLoading(true);
@@ -209,6 +241,12 @@ export const IBMQuantumProvider: React.FC<IBMQuantumProviderProps> = ({ children
         submittedAt: new Date(),
         progress: data.status === 'QUEUED' ? 10 : 25,
         estimatedTime: targetBackend.type === 'hardware' ? 300 : 30,
+        isTheoretical: data.isTheoretical,
+        result: data.qubitResults ? {
+          counts: {}, // Empty counts for now
+          probabilities: [],
+          qubitResults: data.qubitResults
+        } : undefined
       };
 
       setJobs(prev => [job, ...prev]);
@@ -301,7 +339,12 @@ export const IBMQuantumProvider: React.FC<IBMQuantumProviderProps> = ({ children
     }
   };
 
-  // Auto-refresh backends when authenticated
+  // Initial load of backends (fetch local simulators)
+  useEffect(() => {
+    refreshBackends();
+  }, []);
+
+  // Refresh when auth changes
   useEffect(() => {
     if (isAuthenticated) {
       refreshBackends();
@@ -342,6 +385,8 @@ export const IBMQuantumProvider: React.FC<IBMQuantumProviderProps> = ({ children
     isLoading,
     error,
     isFallback,
+    isLocked,
+    setIsLocked,
   };
 
   return (

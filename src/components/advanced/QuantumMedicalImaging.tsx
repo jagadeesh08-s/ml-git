@@ -112,7 +112,7 @@ const QuantumMedicalImaging: React.FC = () => {
         if (!driveLink) return;
         setIsLoadingDrive(true);
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3005'}/api/medical/load-drive`, {
+            const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3006'}/api/medical/load-drive`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url: driveLink })
@@ -330,7 +330,7 @@ const QuantumMedicalImaging: React.FC = () => {
     useEffect(() => {
         const checkBackendStatus = async () => {
             try {
-                const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3005'}/api/medical/status`);
+                const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3006'}/api/medical/status`);
                 const data = await res.json();
                 if (data.isTrained) {
                     setTrainingMetrics(prev => ({ ...prev, isTrained: true, accuracy: 0.96, loss: 0.04 }));

@@ -256,6 +256,90 @@ def calculate_entanglement_witness(statevector: Statevector) -> dict:
         'witness_value': witness_value
     }
 
+def calculate_circuit_results(qc: QuantumCircuit) -> List[Dict[str, Any]]:
+    """Calculate theoretical circuit results using Statevector simulation"""
+    # Execute circuit using StatevectorSimulator to get exact statevector
+    from qiskit.quantum_info import Statevector
+
+    # Simulate the circuit to get the final statevector
+    statevector = Statevector.from_instruction(qc)
+    num_qubits = qc.num_qubits
+
+    # Calculate entanglement measures for the full system
+    entanglement_witness = calculate_entanglement_witness(statevector)
+
+    # Pre-compute reduced density matrices for all qubits to avoid repeated partial traces
+    reduced_states = {}
+    if num_qubits > 1:
+        density_matrix = DensityMatrix(statevector)
+        for i in range(num_qubits):
+            reduced_dm = partial_trace(density_matrix, list(range(i)) + list(range(i + 1, num_qubits)))
+            reduced_states[i] = reduced_dm
+
+    # Calculate results for each qubit
+    qubit_results = []
+    for i in range(num_qubits):
+        if num_qubits == 1:
+            # Single qubit case
+            state = statevector.data
+            alpha = state[0]
+            beta = state[1]
+
+            # Bloch vector components
+            x = 2 * np.real(np.conj(alpha) * beta)
+            y = 2 * np.imag(np.conj(alpha) * beta)
+            z = np.abs(alpha)**2 - np.abs(beta)**2
+
+            bloch_vector = {'x': float(x), 'y': float(y), 'z': float(z)}
+            purity = 1.0  # Pure state
+        else:
+            # Multi-qubit case - use cached reduced density matrix
+            reduced_dm = reduced_states[i]
+
+            # Convert to Bloch vector
+            rho = reduced_dm.data
+            x = 2 * np.real(rho[0, 1])
+            y = -2 * np.imag(rho[0, 1])  # Negative sign for correct orientation
+            z = np.real(rho[0, 0] - rho[1, 1])
+
+            bloch_vector = {'x': float(x), 'y': float(y), 'z': float(z)}
+            purity = float(np.real(np.trace(reduced_dm @ reduced_dm)))
+
+        # Calculate reduced radius for mixed states
+        bloch_radius = np.sqrt(bloch_vector['x']**2 + bloch_vector['y']**2 + bloch_vector['z']**2)
+        reduced_radius = min(bloch_radius, 1.0)
+
+        # Format reduced density matrix for display
+        if num_qubits == 1:
+                # For single qubit, reduced state is full state projector |psi><psi|
+            current_dm = np.outer(statevector.data, np.conj(statevector.data))
+        else:
+            current_dm = reduced_states[i].data
+
+        formatted_matrix = []
+        for row in current_dm:
+            formatted_row = []
+            for val in row:
+                sign = "+" if val.imag >= 0 else "-"
+                formatted_row.append(f"{val.real:.4f} {sign} {abs(val.imag):.4f}j")
+            formatted_matrix.append(formatted_row)
+
+        qubit_results.append({
+            'qubitIndex': i,
+            'blochVector': bloch_vector,
+            'purity': purity,
+            'reducedRadius': reduced_radius,
+            'isEntangled': entanglement_witness['is_entangled'],
+            'entanglement': entanglement_witness['concurrence'], # Frontend alias
+            'concurrence': entanglement_witness['concurrence'],
+            'vonNeumannEntropy': entanglement_witness['von_neumann_entropy'],
+            'witnessValue': entanglement_witness['witness_value'],
+            'matrix': formatted_matrix,
+            'statevector': [[z.real, z.imag] for z in statevector.data] if i == 0 else None  # Only include full statevector for first qubit
+        })
+    
+    return qubit_results
+
 def execute_circuit_locally(circuit_data: Dict[str, Any]) -> Dict[str, Any]:
     """Execute circuit using local Qiskit Aer simulator"""
     try:
@@ -271,89 +355,10 @@ def execute_circuit_locally(circuit_data: Dict[str, Any]) -> Dict[str, Any]:
         for gate in gates:
             apply_gate(qc, gate)
 
-        # Execute circuit using StatevectorSimulator to get exact statevector
-        from qiskit.quantum_info import Statevector
-
-        # Simulate the circuit to get the final statevector
-        statevector = Statevector.from_instruction(qc)
-
-        # Calculate entanglement measures for the full system
-        entanglement_witness = calculate_entanglement_witness(statevector)
-
-        # Pre-compute reduced density matrices for all qubits to avoid repeated partial traces
-        reduced_states = {}
-        if num_qubits > 1:
-            density_matrix = DensityMatrix(statevector)
-            for i in range(num_qubits):
-                reduced_dm = partial_trace(density_matrix, list(range(i)) + list(range(i + 1, num_qubits)))
-                reduced_states[i] = reduced_dm
-
-        # Calculate results for each qubit
-        qubit_results = []
-        for i in range(num_qubits):
-            if num_qubits == 1:
-                # Single qubit case
-                state = statevector.data
-                alpha = state[0]
-                beta = state[1]
-
-                # Bloch vector components
-                x = 2 * np.real(np.conj(alpha) * beta)
-                y = 2 * np.imag(np.conj(alpha) * beta)
-                z = np.abs(alpha)**2 - np.abs(beta)**2
-
-                bloch_vector = {'x': float(x), 'y': float(y), 'z': float(z)}
-                purity = 1.0  # Pure state
-            else:
-                # Multi-qubit case - use cached reduced density matrix
-                reduced_dm = reduced_states[i]
-
-                # Convert to Bloch vector
-                rho = reduced_dm.data
-                x = 2 * np.real(rho[0, 1])
-                y = -2 * np.imag(rho[0, 1])  # Negative sign for correct orientation
-                z = np.real(rho[0, 0] - rho[1, 1])
-
-                bloch_vector = {'x': float(x), 'y': float(y), 'z': float(z)}
-                purity = float(np.real(np.trace(reduced_dm @ reduced_dm)))
-
-            # Calculate reduced radius for mixed states
-            bloch_radius = np.sqrt(bloch_vector['x']**2 + bloch_vector['y']**2 + bloch_vector['z']**2)
-            reduced_radius = min(bloch_radius, 1.0)
-
-            # Format reduced density matrix for display
-            if num_qubits == 1:
-                 # For single qubit, reduced state is full state projector |psi><psi|
-                current_dm = np.outer(statevector.data, np.conj(statevector.data))
-            else:
-                current_dm = reduced_states[i].data
-
-            formatted_matrix = []
-            for row in current_dm:
-                formatted_row = []
-                for val in row:
-                    sign = "+" if val.imag >= 0 else "-"
-                    formatted_row.append(f"{val.real:.4f} {sign} {abs(val.imag):.4f}j")
-                formatted_matrix.append(formatted_row)
-
-            qubit_results.append({
-                'qubitIndex': i,
-                'blochVector': bloch_vector,
-                'purity': purity,
-                'reducedRadius': reduced_radius,
-                'isEntangled': entanglement_witness['is_entangled'],
-                'entanglement': entanglement_witness['concurrence'], # Frontend alias
-                'concurrence': entanglement_witness['concurrence'],
-                'vonNeumannEntropy': entanglement_witness['von_neumann_entropy'],
-                'witnessValue': entanglement_witness['witness_value'],
-                'matrix': formatted_matrix,
-                'statevector': [[z.real, z.imag] for z in statevector.data] if i == 0 else None  # Only include full statevector for first qubit
-            })
-
         return {
             'success': True,
             'method': 'local_simulator',
-            'qubitResults': qubit_results,
+            'qubitResults': calculate_circuit_results(qc),
             'executionTime': 0.001,  # Local execution is very fast
             'backend': 'local_simulator'
         }
@@ -380,13 +385,39 @@ def execute_circuit_ibm(token: str, circuit_data: Dict[str, Any]) -> Dict[str, A
         # Try Runtime API first
         if RUNTIME_AVAILABLE:
             print(f"Trying IBM Runtime Service with token: {token[:10]}...", file=sys.stderr)
-            try:
-                # Use ibm_quantum channel for IBM Quantum Experience
-                service = QiskitRuntimeService(token=token, channel='ibm_quantum')
-                print("IBM Runtime Service initialized successfully with ibm_quantum channel", file=sys.stderr)
+            
+            # Define CRN fallback (User provided)
+            DEFAULT_CRN = "crn:v1:bluemix:public:quantum-computing:us-east:a/1ac6e5b6b083465ebb6ddc1ad7a95450:987f16cf-83e1-4631-a7e1-f7b3293b2fae::"
+            import os
+            effective_instance = os.environ.get("IBM_CLOUD_CRN") or DEFAULT_CRN
+            
+            service = None
+            last_error = None
+            
+            # Try ibm_cloud first if we have an instance
+            if effective_instance:
+                try:
+                    print(f"Attempting 'ibm_cloud' channel with instance...", file=sys.stderr)
+                    service = QiskitRuntimeService(token=token, channel='ibm_cloud', instance=effective_instance)
+                    print("IBM Runtime Service initialized successfully with ibm_cloud channel", file=sys.stderr)
+                except Exception as e:
+                    print(f"ibm_cloud channel failed: {e}", file=sys.stderr)
+                    last_error = e
+
+            # Fallback to ibm_quantum if ibm_cloud failed or wasn't tried
+            if not service:
+                try:
+                    print(f"Attempting 'ibm_quantum' channel...", file=sys.stderr)
+                    service = QiskitRuntimeService(token=token, channel='ibm_quantum')
+                    print("IBM Runtime Service initialized successfully with ibm_quantum channel", file=sys.stderr)
+                except Exception as e:
+                    print(f"ibm_quantum channel failed: {e}", file=sys.stderr)
+                    if not last_error: last_error = e
+            
+            if service:
                 return execute_with_runtime_api(service, token, circuit_data)
-            except Exception as e:
-                print(f"Runtime API failed: {str(e)}", file=sys.stderr)
+            else:
+                 print(f"Runtime API failed completely. Last error: {last_error}", file=sys.stderr)
 
         # Fallback to legacy IBM Quantum provider
         if LEGACY_PROVIDER_AVAILABLE:
@@ -546,17 +577,20 @@ def execute_with_runtime_api(service, token: str, circuit_data: Dict[str, Any]) 
                 'jobId': job.job_id
             }
         else:
-            # Hardware backend - submit job asynchronously and return immediately
-            # Return immediately with job ID - frontend will poll for status
+            # Calculate theoretical results for immediate feedback
+            theoretical_results = calculate_circuit_results(qc)
+            
+            # Hardware backend - submit job asynchronously and return immediately with theoretical data
             return {
                 'success': True,
                 'method': 'ibm_hardware',
-                'qubitResults': [],  # Results will be available later via polling
+                'qubitResults': theoretical_results,  # Return theoretical results immediately
+                'isTheoretical': True, # Flag to indicate these are theoretical predictions
                 'executionTime': execution_time,
                 'backend': backend_name,
                 'jobId': job.job_id,
                 'status': 'QUEUED',  # Job is queued for execution
-                'message': 'Hardware job submitted successfully to IBM Quantum. Results will be available once execution completes.',
+                'message': 'Hardware job submitted. Displaying theoretical results while job runs.',
                 'progress': 0,
                 'estimatedTime': None
             }

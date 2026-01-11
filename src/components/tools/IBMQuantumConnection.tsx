@@ -25,7 +25,9 @@ import {
   Loader2,
   ExternalLink,
   Settings,
-  Info
+  Info,
+  Lock,
+  Unlock
 } from 'lucide-react';
 import { useIBMQuantum, IBMQuantumBackend, QuantumJob } from '@/contexts/IBMQuantumContext';
 import { toast } from 'sonner';
@@ -54,7 +56,9 @@ export const IBMQuantumConnection: React.FC<IBMQuantumConnectionProps> = ({
     isLoading,
     error,
     isFallback,
-    getJobResult
+    getJobResult,
+    isLocked,
+    setIsLocked
   } = useIBMQuantum();
 
   const [activeTab, setActiveTab] = useState<'auth' | 'backends' | 'jobs'>('auth');
@@ -62,18 +66,33 @@ export const IBMQuantumConnection: React.FC<IBMQuantumConnectionProps> = ({
   const [testCircuit, setTestCircuit] = useState('');
   const [testShots, setTestShots] = useState(1024);
 
-  // Auto-switch to backends tab when authenticated
-  useEffect(() => {
-    if (isAuthenticated && activeTab === 'auth') {
-      setActiveTab('backends');
-    }
-  }, [isAuthenticated, activeTab]);
+  // No auto-switch to backends tab just based on auth
+  // We handle it explicitly after validation
 
-  const handleTokenSubmit = (e: React.FormEvent) => {
+  const [inputToken, setInputToken] = useState('');
+
+  // Sync input with global token on mount
+  useEffect(() => {
+    if (token) setInputToken(token);
+  }, [token]);
+
+  const handleTokenSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (token?.trim()) {
-      setToken(token.trim());
-      toast.success('IBM Quantum token saved');
+    if (inputToken?.trim()) {
+      const newToken = inputToken.trim();
+
+      // Show loading toast or indicator? refreshBackends sets global isLoading
+      const isValid = await refreshBackends(newToken);
+
+      if (isValid) {
+        setToken(newToken);
+        toast.success('IBM Quantum token verified and saved');
+        setActiveTab('backends');
+      } else {
+        toast.error('Invalid IBM Quantum token or connection failed');
+        // Don't save to global state if invalid
+        // Token might still be in local input
+      }
     }
   };
 
@@ -135,11 +154,11 @@ export const IBMQuantumConnection: React.FC<IBMQuantumConnectionProps> = ({
               <Key className="w-4 h-4" />
               Authentication
             </TabsTrigger>
-            <TabsTrigger value="backends" disabled={!isAuthenticated} className="flex items-center gap-2">
+            <TabsTrigger value="backends" className="flex items-center gap-2">
               <Server className="w-4 h-4" />
               Backends
             </TabsTrigger>
-            <TabsTrigger value="jobs" disabled={!isAuthenticated} className="flex items-center gap-2">
+            <TabsTrigger value="jobs" className="flex items-center gap-2">
               <Activity className="w-4 h-4" />
               Jobs
             </TabsTrigger>
@@ -170,13 +189,13 @@ export const IBMQuantumConnection: React.FC<IBMQuantumConnectionProps> = ({
                     id="token"
                     type="password"
                     placeholder="Enter your IBM Quantum token"
-                    value={token || ''}
-                    onChange={(e) => setToken(e.target.value)}
+                    value={inputToken}
+                    onChange={(e) => setInputToken(e.target.value)}
                     className="flex-1"
                   />
-                  <Button type="submit" disabled={!token?.trim()}>
-                    <Key className="w-4 h-4 mr-2" />
-                    Save
+                  <Button type="submit" disabled={!inputToken?.trim() || isLoading}>
+                    {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Key className="w-4 h-4 mr-2" />}
+                    {isLoading ? 'Verifying...' : 'Save & Connect'}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -226,12 +245,12 @@ export const IBMQuantumConnection: React.FC<IBMQuantumConnectionProps> = ({
                       </div>
                     </div>
                   </SelectItem>
-                  <SelectItem value="ibm" disabled={!isAuthenticated}>
+                  <SelectItem value="ibm">
                     <div className="flex items-center gap-2">
                       <Server className="w-4 h-4 text-purple-500" />
                       <div>
                         <div className="font-medium">IBM Quantum Hardware</div>
-                        <div className="text-xs text-muted-foreground">Real quantum computers</div>
+                        <div className="text-xs text-muted-foreground">{isAuthenticated ? 'Authenticated' : 'Requires Token'}</div>
                       </div>
                     </div>
                   </SelectItem>
@@ -369,6 +388,24 @@ export const IBMQuantumConnection: React.FC<IBMQuantumConnectionProps> = ({
                       <span className="text-muted-foreground">Status:</span>
                       <div className="font-medium capitalize">{selectedBackend.status}</div>
                     </div>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-border pt-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">Backend Lock:</span>
+                      <Badge variant={isLocked ? "default" : "outline"} className={isLocked ? "bg-amber-500 hover:bg-amber-600" : ""}>
+                        {isLocked ? "LOCKED" : "UNLOCKED"}
+                      </Badge>
+                    </div>
+                    <Button
+                      onClick={() => setIsLocked(!isLocked)}
+                      variant={isLocked ? "secondary" : "outline"}
+                      size="sm"
+                      className="gap-2"
+                    >
+                      {isLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                      {isLocked ? "Unlock Selection" : "Lock Selection"}
+                    </Button>
                   </div>
 
                   <div className="space-y-2">

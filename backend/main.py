@@ -360,17 +360,18 @@ async def execute_circuit_statevector(data: Dict[str, Any]):
 
 # Get available backends
 @app.get("/api/quantum/backends")
-async def get_backends(token: Optional[str] = None):
+async def get_backends(token: Optional[str] = None, instance: Optional[str] = None):
     try:
         print(f"Request for backends received. Token provided: {'YES' if token else 'NO'}")
 
         # Use unified API to get backends
-        backends = await api_get_backends(token)
+        backends, error = await api_get_backends(token, instance)
 
         return {
             "success": True,
             "backends": backends,
-            "isFallback": False  # New API doesn't use fallback flag
+            "isFallback": bool(error),
+            "error": error
         }
 
     except Exception as e:
@@ -1305,7 +1306,7 @@ async def startup_event():
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", 3005))  # Changed default port to 3005
+    port = 3006 # Force 3006 to override potential env var conflicts
     print(f"Quantum Backend API running on port {port}")
     print(f"Health check: http://localhost:{port}/health")
     print(f"CORS enabled for: {os.getenv('FRONTEND_URL', 'http://localhost:5173')}")

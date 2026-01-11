@@ -421,10 +421,46 @@ class QuantumAPI:
             print(f"DEBUG: Getting job status for {job_id} with token {token[:10]}...", flush=True)
             
             # Connect to IBM Quantum
-            service = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: QiskitRuntimeService(token=token, channel='ibm_quantum')
-            )
+            service = None
+            last_error = None
+            
+            # Define CRN fallback (User provided)
+            DEFAULT_CRN = "crn:v1:bluemix:public:quantum-computing:us-east:a/1ac6e5b6b083465ebb6ddc1ad7a95450:987f16cf-83e1-4631-a7e1-f7b3293b2fae::"
+            effective_instance = os.environ.get("IBM_CLOUD_CRN") or DEFAULT_CRN
+
+            # defined channels to try in order - prioritize ibm_cloud with instance if available
+            channels_to_try = [('ibm_cloud', effective_instance), ('ibm_quantum', None)]
+            
+            for channel, instance in channels_to_try:
+                try:
+                    print(f"DEBUG: Attempting to connect with channel='{channel}' instance='{instance}'...", flush=True)
+                    kwargs = {'token': token, 'channel': channel}
+                    if channel == 'ibm_cloud' and instance:
+                        kwargs['instance'] = instance
+
+                    service = await asyncio.get_event_loop().run_in_executor(
+                        None,
+                        lambda: QiskitRuntimeService(**kwargs)
+                    )
+                    
+                    # Verify if job is accessible
+                    try:
+                        await asyncio.get_event_loop().run_in_executor(None, lambda: service.job(job_id))
+                        print(f"DEBUG: Job {job_id} found in channel {channel}", flush=True)
+                        break
+                    except Exception as job_err:
+                        print(f"DEBUG: Job not found in {channel}: {job_err}", flush=True)
+                        service = None # Reset
+                        continue
+                        
+                except Exception as e:
+                    print(f"DEBUG: Channel '{channel}' failed: {e}", flush=True)
+                    last_error = str(e)
+            
+            if not service:
+                 raise Exception(f"Failed to connect or find job. Last error: {last_error}")
+            
+            # Get the job
             
             # Get the job
             job = await asyncio.get_event_loop().run_in_executor(
@@ -496,10 +532,44 @@ class QuantumAPI:
             print(f"DEBUG: Getting job result for {job_id} with token {token[:10]}...", flush=True)
             
             # Connect to IBM Quantum
-            service = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: QiskitRuntimeService(token=token, channel='ibm_quantum')
-            )
+            service = None
+            last_error = None
+            
+            # Define CRN fallback (User provided)
+            DEFAULT_CRN = "crn:v1:bluemix:public:quantum-computing:us-east:a/1ac6e5b6b083465ebb6ddc1ad7a95450:987f16cf-83e1-4631-a7e1-f7b3293b2fae::"
+            effective_instance = os.environ.get("IBM_CLOUD_CRN") or DEFAULT_CRN
+
+            # defined channels to try in order - prioritize ibm_cloud with instance if available
+            channels_to_try = [('ibm_cloud', effective_instance), ('ibm_quantum', None)]
+            
+            for channel, instance in channels_to_try:
+                try:
+                    print(f"DEBUG: Attempting to connect with channel='{channel}' instance='{instance}'...", flush=True)
+                    kwargs = {'token': token, 'channel': channel}
+                    if channel == 'ibm_cloud' and instance:
+                        kwargs['instance'] = instance
+
+                    service = await asyncio.get_event_loop().run_in_executor(
+                        None,
+                        lambda: QiskitRuntimeService(**kwargs)
+                    )
+                    
+                    # Verify if job is accessible with this service
+                    try:
+                        await asyncio.get_event_loop().run_in_executor(None, lambda: service.job(job_id))
+                        print(f"DEBUG: Job {job_id} found in channel {channel}", flush=True)
+                        break 
+                    except Exception as job_err:
+                        print(f"DEBUG: Job not found in {channel}: {job_err}", flush=True)
+                        service = None # Reset if job not found
+                        continue
+
+                except Exception as e:
+                    print(f"DEBUG: Channel '{channel}' failed: {e}", flush=True)
+                    last_error = str(e)
+            
+            if not service:
+                 raise Exception(f"Failed to connect or find job. Last error: {last_error}")
             
             # Get the job
             job = await asyncio.get_event_loop().run_in_executor(
@@ -592,11 +662,19 @@ class QuantumAPI:
         except Exception as e:
             return False, str(e)
 
-    async def get_available_backends(self, token: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def get_available_backends(self, token: Optional[str] = None, instance: Optional[str] = None) -> Tuple[List[Dict[str, Any]], Optional[str]]:
         """
-        Get list of available backends
+        Get list of available backends. Returns (backends, error_message).
         """
+        # effective_token = token or os.environ.get("IBM_QUANTUM_TOKEN")
+        # For now we use the passed token primarily
+        
+        # User provided CRN fallback
+        DEFAULT_CRN = "crn:v1:bluemix:public:quantum-computing:us-east:a/1ac6e5b6b083465ebb6ddc1ad7a95450:987f16cf-83e1-4631-a7e1-f7b3293b2fae::"
+        effective_instance = instance or os.environ.get("IBM_CLOUD_CRN") or DEFAULT_CRN
+
         print(f"DEBUG: get_available_backends called with token={str(token)[:10]}...", flush=True)
+        error_msg = None
         try:
             # Return standard backends
             backends = [
@@ -621,11 +699,38 @@ class QuantumAPI:
             if token and IBM_RUNTIME_AVAILABLE:
                 try:
                     print("DEBUG: Attempting to connect to QiskitRuntimeService...", flush=True)
-                    # Use run_in_executor to avoid blocking the event loop
-                    service = await asyncio.get_event_loop().run_in_executor(
-                        None, 
-                        lambda: QiskitRuntimeService(token=token, channel='ibm_quantum')
-                    )
+                    
+                    service = None
+                    last_error = None
+                    channels_to_try = ['ibm_quantum', 'ibm_cloud']
+                    
+                    for channel in channels_to_try:
+                        try:
+                            print(f"DEBUG: Trying channel='{channel}'...", flush=True)
+                            
+                            # Prepare kwargs
+                            kwargs = {'token': token, 'channel': channel}
+                            if channel == 'ibm_cloud' and effective_instance:
+                                kwargs['instance'] = effective_instance
+                                print(f"DEBUG: Using instance/CRN for ibm_cloud", flush=True)
+                            
+                            # Use run_in_executor to avoid blocking the event loop
+                            service = await asyncio.get_event_loop().run_in_executor(
+                                None, 
+                                lambda: QiskitRuntimeService(**kwargs)
+                            )
+                            # If we get here, connection initialized (token format valid for this channel)
+                            # Now verify by fetching backends? No, we do that next. 
+                            print(f"DEBUG: Service created with channel='{channel}'", flush=True)
+                            break
+                        except Exception as e:
+                            print(f"DEBUG: Channel '{channel}' init failed: {e}", flush=True)
+                            last_error = str(e)
+
+                    if not service:
+                        raise Exception(f"Could not initialize IBM Runtime Service. {last_error}")
+
+                    print("DEBUG: Fetching backends...", flush=True)
                     print("DEBUG: Service created. Fetching backends...", flush=True)
                     
                     ibm_backends = await asyncio.get_event_loop().run_in_executor(None, service.backends)
@@ -665,15 +770,16 @@ class QuantumAPI:
 
                 except Exception as e:
                     print(f"Warning: Could not fetch IBM backends: {e}", flush=True)
-                    traceback.print_exc()
+                    error_msg = str(e)
+                    # traceback.print_exc() # detailed logs if needed
 
             print(f"DEBUG: Returning {len(backends)} backends", flush=True)
-            return backends
+            return backends, error_msg
 
         except Exception as e:
             print(f"Error getting backends: {e}", flush=True)
             traceback.print_exc()
-            return []
+            return [], str(e)
 
     async def get_user_jobs(self, token: str) -> List[Dict[str, Any]]:
         """
@@ -738,11 +844,11 @@ async def validate_token(token: str) -> Tuple[bool, Optional[str]]:
     return await quantum_api.validate_token(token)
 
 
-async def get_available_backends(token: Optional[str] = None) -> List[Dict[str, Any]]:
+async def get_available_backends(token: Optional[str] = None, instance: Optional[str] = None) -> Tuple[List[Dict[str, Any]], Optional[str]]:
     """
     Convenience function for getting available backends
     """
-    return await quantum_api.get_available_backends(token)
+    return await quantum_api.get_available_backends(token, instance)
 
 
 async def get_user_jobs(token: str) -> List[Dict[str, Any]]:

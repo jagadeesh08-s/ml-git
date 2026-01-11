@@ -138,27 +138,22 @@ const applySingleQubitGateComplex = (state: ComplexMatrix, gate: ComplexMatrix, 
 
 const applyTwoQubitGateComplex = (state: ComplexMatrix, gate: ComplexMatrix, q1: number, q2: number, num: number): ComplexMatrix => {
   const dim = 1 << num;
-  const U = Array(dim).fill(null).map((_, i) => Array(dim).fill(null).map(() => complex(0, 0)));
+
+  // Initialize U with valid complex(0,0) objects immediately, avoiding null issues
+  const U: ComplexMatrix = Array.from({ length: dim }, () =>
+    Array.from({ length: dim }, () => ({ real: 0, imag: 0 }))
+  );
 
   for (let r = 0; r < dim; r++) {
     // For each basis state |r>, find what it maps to.
-    // r in binary has bits at q1 and q2.
-    // Extract the 2-bit state |b1 b2>
     const b1 = (r >> (num - 1 - q1)) & 1; // Assuming q0 is MSB
     const b2 = (r >> (num - 1 - q2)) & 1;
-
-    const inIdx = b1 * 2 + b2; // MSB is q1?
-    // We need to match the gate matrix convention.
-    // Usually CNOT matrix is [1 0 0 0; 0 1 0 0; 0 0 0 1; 0 0 1 0]
-    // Where input is |00> |01> |10> |11> (control target)
-    // So if q1 is control, b1 is first bit.
-    // Correct.
+    const inIdx = b1 * 2 + b2;
 
     for (let outIdx = 0; outIdx < 4; outIdx++) {
       const val = gate[outIdx][inIdx]; // Complex value
       if (Math.abs(val.real) < 1e-10 && Math.abs(val.imag) < 1e-10) continue;
 
-      // Construct the output full state index 'c'
       const out_b1 = (outIdx >> 1) & 1;
       const out_b2 = outIdx & 1;
 
@@ -178,7 +173,11 @@ const applyTwoQubitGateComplex = (state: ComplexMatrix, gate: ComplexMatrix, q1:
 
 const applyThreeQubitGateComplex = (state: ComplexMatrix, gate: ComplexMatrix, q1: number, q2: number, q3: number, num: number): ComplexMatrix => {
   const dim = 1 << num;
-  const U = Array(dim).fill(null).map((_, i) => Array(dim).fill(null).map(() => complex(0, 0)));
+
+  // Initialize U with valid complex(0,0) objects immediately
+  const U: ComplexMatrix = Array.from({ length: dim }, () =>
+    Array.from({ length: dim }, () => ({ real: 0, imag: 0 }))
+  );
 
   for (let r = 0; r < dim; r++) {
     const b1 = (r >> (num - 1 - q1)) & 1;

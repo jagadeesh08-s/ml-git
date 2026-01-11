@@ -1,7 +1,7 @@
 // Quantum API service for communicating with the backend
 // Handles IBM Quantum integration and circuit execution
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || import.meta.env.REACT_APP_API_URL) || 'http://localhost:3005';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || import.meta.env.REACT_APP_API_URL) || 'http://localhost:3006';
 
 export interface QuantumExecutionOptions {
   backend: 'local' | 'aer_simulator' | 'ibm_simulator' | 'ibm_hardware' | 'wasm';
