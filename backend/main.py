@@ -234,7 +234,11 @@ async def execute_circuit(request: Request, data: Dict[str, Any]):
 
         # Token validation for non-local backends
         if backend != BackendType.LOCAL and backend != BackendType.CUSTOM_SIMULATOR and not token:
-            raise HTTPException(status_code=400, detail="IBM Quantum token is required for non-local execution")
+            # Check if token is available in environment
+            if not os.environ.get("IBM_QUANTUM_TOKEN"):
+                raise HTTPException(status_code=400, detail="IBM Quantum token is required for non-local execution")
+            # If strictly required, we could set token = os.environ.get("IBM_QUANTUM_TOKEN") here, 
+            # but execute_circuit_ibm handles the lookup now.
 
         # Create execution options
         options = QuantumExecutionOptions(
@@ -1306,7 +1310,7 @@ async def startup_event():
 
 if __name__ == "__main__":
     import uvicorn
-    port = 3006 # Force 3006 to override potential env var conflicts
+    port = 3005 # Match frontend configuration
     print(f"Quantum Backend API running on port {port}")
     print(f"Health check: http://localhost:{port}/health")
     print(f"CORS enabled for: {os.getenv('FRONTEND_URL', 'http://localhost:5173')}")

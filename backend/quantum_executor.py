@@ -380,6 +380,10 @@ def execute_circuit_ibm(token: str, circuit_data: Dict[str, Any]) -> Dict[str, A
 
         # Check if token is provided
         if not token:
+            import os
+            token = os.environ.get("IBM_QUANTUM_TOKEN")
+            
+        if not token:
             raise Exception("IBM Quantum token is required. Please set IBM_QUANTUM_TOKEN in backend/.env or run setup_ibm_quantum.js")
 
         # Try Runtime API first

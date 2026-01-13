@@ -146,7 +146,13 @@ export const IBMQuantumProvider: React.FC<IBMQuantumProviderProps> = ({ children
       setBackends(transformedBackends);
 
       // Auto-select best available backend
-      if (!selectedBackend || !isLocked) {
+      // We allow switching if:
+      // 1. No backend is selected
+      // 2. The selection is NOT locked by the user
+      // 3. OR if we are currently on a local simulator but hardware just became available (upgrade)
+      const isUpgradeAvailable = selectedBackend?.type === 'simulator' && transformedBackends.some(b => b.type === 'hardware' && b.status === 'online');
+
+      if (!selectedBackend || !isLocked || isUpgradeAvailable) {
         // Priority: 1. Online IBM Hardware, 2. Online IBM Simulator, 3. Online Local Simulator
         let bestBackend = transformedBackends.find(b => b.status === 'online' && b.type === 'hardware');
 
@@ -158,11 +164,19 @@ export const IBMQuantumProvider: React.FC<IBMQuantumProviderProps> = ({ children
           bestBackend = transformedBackends.find(b => b.status === 'online');
         }
 
-        if (bestBackend) {
+        // Only switch if we found a better backend and it's different from current
+        if (bestBackend && bestBackend.id !== selectedBackend?.id) {
           console.log("Auto-selecting backend:", bestBackend.name);
           setSelectedBackend(bestBackend);
-          setIsLocked(true); // Lock the selection automatically
-          toast.success(`Automatically connected to ${bestBackend.name}`);
+          // Do NOT lock automatically, leave that to the user
+          // setIsLocked(true); 
+
+          if (bestBackend.type === 'hardware') {
+            toast.success(`Connected to IBM Quantum: ${bestBackend.name}`);
+          } else if (!selectedBackend) {
+            // Only toast on initial load
+            // toast.success(`Connected to ${bestBackend.name}`);
+          }
         }
       }
 
@@ -232,14 +246,18 @@ export const IBMQuantumProvider: React.FC<IBMQuantumProviderProps> = ({ children
       }
 
       // Create job object from response
+      const isTheoreticalInitial = data.isTheoretical && data.qubitResults;
       const job: QuantumJob = {
         id: data.jobId || `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         backendId: targetBackend.id,
         circuit,
         shots,
-        status: data.status === 'QUEUED' ? 'queued' : 'running',
+        // If we have theoretical results immediately, we can mark it as 'completed' for visual purposes, 
+        // or keep it running but show results. Let's keep 'running' but attach results.
+        // Actually, for "no delay" user experience, if we have results, let's treat it as completed state locally
+        status: isTheoreticalInitial ? 'completed' : (data.status === 'QUEUED' ? 'queued' : 'running'),
         submittedAt: new Date(),
-        progress: data.status === 'QUEUED' ? 10 : 25,
+        progress: isTheoreticalInitial ? 100 : (data.status === 'QUEUED' ? 10 : 25),
         estimatedTime: targetBackend.type === 'hardware' ? 300 : 30,
         isTheoretical: data.isTheoretical,
         result: data.qubitResults ? {
