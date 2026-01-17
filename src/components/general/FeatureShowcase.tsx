@@ -87,9 +87,9 @@ const FeatureShowcase: React.FC<FeatureShowcaseProps> = ({
   ];
 
   const capabilities = [
-    { icon: Zap, text: "IBM Quantum Hardware Integration" },
-    { icon: Globe, text: "Real-time Job Status Tracking" },
-    { icon: Cpu, text: "Local Quantum Simulation" },
+    { icon: Zap, text: "High-Performance Local Simulator" },
+    { icon: Globe, text: "Real-time State Analysis" },
+    { icon: Cpu, text: "Browser-based Execution" },
     { icon: Sparkles, text: "Advanced Quantum Algorithms" }
   ];
 

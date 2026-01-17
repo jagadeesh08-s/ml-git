@@ -1,28 +1,12 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap');
+
+/* #root styles removed to allow AppLayout full control
 #root {
   width: 100%;
   min-height: 100vh;
   margin: 0 auto;
-  padding: 0;
 }
-
-@media (min-width: 640px) {
-  #root {
-    padding: 0.5rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  #root {
-    padding: 1rem;
-  }
-}
-
-@media (min-width: 1280px) {
-  #root {
-    max-width: 1400px;
-    padding: 1.5rem;
-  }
-}
+*/
 
 .logo {
   height: 6em;
@@ -30,9 +14,11 @@
   will-change: filter;
   transition: filter 300ms;
 }
+
 .logo:hover {
   filter: drop-shadow(0 0 2em #646cffaa);
 }
+
 .logo.react:hover {
   filter: drop-shadow(0 0 2em #61dafbaa);
 }
@@ -41,6 +27,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -61,7 +48,7 @@
 }
 
 /* Quantum Visual Effects */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap');
+
 
 /* Global quantum effects */
 .quantum-bg {
@@ -82,11 +69,25 @@
 }
 
 @keyframes quantumShift {
-  0% { background-position: 0% 50%; }
-  25% { background-position: 100% 50%; }
-  50% { background-position: 100% 100%; }
-  75% { background-position: 0% 100%; }
-  100% { background-position: 0% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+
+  25% {
+    background-position: 100% 50%;
+  }
+
+  50% {
+    background-position: 100% 100%;
+  }
+
+  75% {
+    background-position: 0% 100%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 /* Enhanced glass morphism */
@@ -132,8 +133,15 @@
 
 /* Particle animation */
 @keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-20px); }
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-20px);
+  }
 }
 
 .float-animation {
@@ -142,9 +150,12 @@
 
 /* Pulse effect for quantum states */
 @keyframes quantum-pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.7);
   }
+
   70% {
     box-shadow: 0 0 0 10px rgba(102, 126, 234, 0);
   }
@@ -160,6 +171,7 @@
     opacity: 0;
     transform: translateY(30px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -224,8 +236,13 @@
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* Card hover effects */
@@ -269,6 +286,13 @@
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
 }

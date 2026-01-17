@@ -31,17 +31,19 @@ export const createInitialState = (numQubits: number): number[][] => {
 };
 
 // Calculate Bloch vector from density matrix
+// Bloch vector formulas: x = 2*Re(ρ₀₁), y = 2*Im(ρ₀₁), z = ρ₀₀ - ρ₁₁
 export const calculateBlochVector = (densityMatrix: number[][] | ComplexMatrix): { x: number; y: number; z: number } => {
   if (isComplexMatrix(densityMatrix)) {
     const rho = densityMatrix;
     if (rho.length !== 2 || rho[0].length !== 2) {
       return { x: 0, y: 0, z: 1 };
     }
-    // x = 2*Re(ρ01)
+    // x = 2*Re(ρ₀₁) - off-diagonal coherence in X basis
     const x = 2 * rho[0][1].real;
-    // y = 2*Im(ρ10) = -2*Im(ρ01)
-    const y = 2 * rho[1][0].imag;
-    // z = ρ00 - ρ11
+    // y = 2*Im(ρ₀₁) - off-diagonal coherence in Y basis  
+    // Note: y = 2*Im(ρ₀₁) NOT 2*Im(ρ₁₀)
+    const y = 2 * rho[0][1].imag;
+    // z = ρ₀₀ - ρ₁₁ - population difference
     const z = rho[0][0].real - rho[1][1].real;
 
     return {
@@ -102,17 +104,21 @@ const matrixTrace = (matrix: number[][] | ComplexMatrix): number => {
 };
 
 // Calculate superposition measure (coherence)
+// Superposition is measured by the magnitude of off-diagonal terms
+// For a pure state: superposition = sqrt(1 - |z|²) where z is Bloch z-component
 export const calculateSuperposition = (densityMatrix: number[][] | ComplexMatrix): number => {
   if (isComplexMatrix(densityMatrix)) {
-    // |ρ01| + |ρ10|
+    // Calculate coherence as |ρ₀₁| (magnitude of off-diagonal element)
     const mag01 = Math.sqrt(densityMatrix[0][1].real ** 2 + densityMatrix[0][1].imag ** 2);
-    const mag10 = Math.sqrt(densityMatrix[1][0].real ** 2 + densityMatrix[1][0].imag ** 2);
-    return Math.min(mag01 + mag10, 1);
+    // For pure states, superposition = 2*|ρ₀₁| (ranges from 0 to 1)
+    // 0 = no superposition (pure |0⟩ or |1⟩)
+    // 1 = maximum superposition (|+⟩, |-⟩, |+i⟩, |-i⟩)
+    return Math.min(2 * mag01, 1);
   }
 
   const mat = densityMatrix as number[][];
-  const offDiagonal = Math.abs(mat[0][1]) + Math.abs(mat[1][0]);
-  return Math.min(offDiagonal, 1);
+  const offDiagonal = Math.abs(mat[0][1]);
+  return Math.min(2 * offDiagonal, 1);
 };
 
 // Calculate entanglement measure

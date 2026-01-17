@@ -6,11 +6,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Settings, Palette, Zap, Star, Eye, Coffee, Monitor, Moon, Sun } from 'lucide-react';
 import ThemePreview from './ThemePreview';
 
-type ThemeType = 'light' | 'dark' | 'system' | 'quantum' | 'neon' | 'minimal' | 'cosmic' | 'retro' | 'quantum-light' | 'superposition' | 'entanglement' | 'tunneling' | 'decoherence';
+import { Theme } from '@/components/general/ThemeProvider';
 
 interface QuantumThemeManagerProps {
-  currentTheme: ThemeType;
-  onThemeChange: (theme: ThemeType) => void;
+  currentTheme: Theme;
+  onThemeChange: (theme: Theme) => void;
 }
 
 export const QuantumThemeManager: React.FC<QuantumThemeManagerProps> = ({
@@ -20,26 +20,26 @@ export const QuantumThemeManager: React.FC<QuantumThemeManagerProps> = ({
   const [isOpen, setIsOpen] = useState(false);
 
   const quantumThemes = [
-    { value: 'quantum' as ThemeType, label: 'Quantum', description: 'Cyberpunk quantum theme with cyan accents', icon: Zap },
-    { value: 'quantum-light' as ThemeType, label: 'Quantum Light', description: 'Light quantum-inspired theme with electric blues', icon: Zap },
-    { value: 'superposition' as ThemeType, label: 'Superposition', description: 'Mixed state quantum theme with vibrant contrasts', icon: Star },
-    { value: 'entanglement' as ThemeType, label: 'Entanglement', description: 'Connected quantum theme with deep purples', icon: Star },
-    { value: 'tunneling' as ThemeType, label: 'Tunneling', description: 'Quantum tunneling theme with sharp cyans', icon: Zap },
-    { value: 'decoherence' as ThemeType, label: 'Decoherence', description: 'Quantum decoherence theme with fading effects', icon: Eye }
+    { value: 'quantum' as Theme, label: 'Quantum', description: 'Cyberpunk quantum theme with cyan accents', icon: Zap },
+    { value: 'quantum-light' as Theme, label: 'Quantum Light', description: 'Light quantum-inspired theme with electric blues', icon: Zap },
+    { value: 'superposition' as Theme, label: 'Superposition', description: 'Mixed state quantum theme with vibrant contrasts', icon: Star },
+    { value: 'entanglement' as Theme, label: 'Entanglement', description: 'Connected quantum theme with deep purples', icon: Star },
+    { value: 'tunneling' as Theme, label: 'Tunneling', description: 'Quantum tunneling theme with sharp cyans', icon: Zap },
+    { value: 'decoherence' as Theme, label: 'Decoherence', description: 'Quantum decoherence theme with fading effects', icon: Eye }
   ];
 
   const classicThemes = [
-    { value: 'dark' as ThemeType, label: 'Dark', description: 'Classic dark theme', icon: Moon },
-    { value: 'light' as ThemeType, label: 'Light', description: 'Clean light theme', icon: Sun },
-    { value: 'system' as ThemeType, label: 'System', description: 'Follow system preference', icon: Monitor },
-    { value: 'neon' as ThemeType, label: 'Neon', description: 'Bright neon colors and effects', icon: Star },
-    { value: 'minimal' as ThemeType, label: 'Minimal', description: 'Clean and minimal design', icon: Eye },
-    { value: 'cosmic' as ThemeType, label: 'Cosmic', description: 'Space-inspired dark theme', icon: Star },
-    { value: 'retro' as ThemeType, label: 'Retro', description: '80s retro computing style', icon: Coffee }
+    { value: 'dark' as Theme, label: 'Dark', description: 'Classic dark theme', icon: Moon },
+    { value: 'light' as Theme, label: 'Light', description: 'Clean light theme', icon: Sun },
+    { value: 'system' as Theme, label: 'System', description: 'Follow system preference', icon: Monitor },
+    { value: 'neon' as Theme, label: 'Neon', description: 'Bright neon colors and effects', icon: Star },
+    { value: 'minimal' as Theme, label: 'Minimal', description: 'Clean and minimal design', icon: Eye },
+    { value: 'cosmic' as Theme, label: 'Cosmic', description: 'Space-inspired dark theme', icon: Star },
+    { value: 'retro' as Theme, label: 'Retro', description: '80s retro computing style', icon: Coffee }
   ];
 
   const handleThemeSelect = (theme: string) => {
-    onThemeChange(theme as ThemeType);
+    onThemeChange(theme as Theme);
     setIsOpen(false);
   };
 

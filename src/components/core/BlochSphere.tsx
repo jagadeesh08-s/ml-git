@@ -23,57 +23,7 @@ interface BlochSphereProps {
 
 // --- Internal Components ---
 
-const ProbabilityChart: React.FC<{ z: number }> = ({ z }) => {
-  // Calculate Basis Probabilities
-  // P(|0>) = (1 + z) / 2
-  // P(|1>) = (1 - z) / 2
-  // Ensure we define standard range [-1, 1] -> [0, 1]
-  const p0 = Math.max(0, Math.min(1, (1 + z) / 2)) * 100;
-  const p1 = Math.max(0, Math.min(1, (1 - z) / 2)) * 100;
-
-  return (
-    <div className="w-48 bg-black/60 backdrop-blur-md rounded-lg p-4 border border-cyan-500/30 text-xs font-mono transition-transform duration-200">
-      <h3 className="text-cyan-400 mb-3 font-bold flex items-center justify-between">
-        <span>Probabilities</span>
-        <span className="text-[10px] opacity-70">(Z-Basis)</span>
-      </h3>
-
-      <div className="space-y-4">
-        {/* |0> State */}
-        <div className="group">
-          <div className="flex justify-between mb-1 text-gray-300">
-            <span>|0⟩</span>
-            <span>{p0.toFixed(1)}%</span>
-          </div>
-          <div className="w-full bg-gray-800/50 rounded-full h-2 overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-cyan-600 to-blue-500 rounded-full transition-all duration-500 ease-out group-hover:from-cyan-400 group-hover:to-blue-400 shadow-[0_0_10px_rgba(34,211,238,0.4)]"
-              style={{ width: `${p0}%` }}
-            />
-          </div>
-        </div>
-
-        {/* |1> State */}
-        <div className="group">
-          <div className="flex justify-between mb-1 text-gray-300">
-            <span>|1⟩</span>
-            <span>{p1.toFixed(1)}%</span>
-          </div>
-          <div className="w-full bg-gray-800/50 rounded-full h-2 overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-purple-600 to-pink-500 rounded-full transition-all duration-500 ease-out group-hover:from-purple-400 group-hover:to-pink-400 shadow-[0_0_10px_rgba(168,85,247,0.4)]"
-              style={{ width: `${p1}%` }}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-4 pt-3 border-t border-white/10 flex justify-between text-[10px] text-gray-400">
-        <span>Computational Basis</span>
-      </div>
-    </div>
-  );
-};
+// ProbabilityChart will be implemented as an HTML overlay in the main component
 
 const QuantumStateMarker: React.FC<{ vector: BlochVector; isAtDefault: boolean }> = ({ vector, isAtDefault }) => {
   // "Q-Sphere" style marker (balloon/point on surface)
@@ -189,7 +139,7 @@ const BlochSphere3D: React.FC<BlochSphereProps> = ({
 
   return (
     <div
-      className={`relative rounded-xl overflow-hidden bg-gradient-to-b from-[#0a0a1a] to-[#000] border border-white/5 shadow-2xl group ${className}`}
+      className={`relative rounded-xl overflow-hidden bg-gradient-to-b from-[#0a0a1a] to-[#000] border border-white/5 shadow-2xl group flex flex-row ${className}`}
       style={{
         width: '100%',
         height: '100%',
@@ -197,78 +147,109 @@ const BlochSphere3D: React.FC<BlochSphereProps> = ({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* 2. PROBABILITIES BAR CHART (Hover Only) */}
-      <div className="absolute top-4 left-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none group-hover:pointer-events-auto">
-        <ProbabilityChart z={displayVector.z} />
-      </div>
+      <div className="relative flex-1 min-w-[300px] h-full">
+        <Canvas
+          camera={{ position: [2.5, 1.5, 3.5], fov: 40 }}
+          gl={{ antialias: true, alpha: true }}
+        >
+          <ambientLight intensity={0.5} />
+          <pointLight position={[10, 10, 10]} intensity={1} color="#4fc3f7" />
+          <pointLight position={[-10, -10, -10]} intensity={0.5} color="#a855f7" />
 
-      {/* 3. 3D SCENE ("Mix of bloch and image") */}
-      <Canvas
-        camera={{ position: [3, 2, 4], fov: 45 }}
-        gl={{ antialias: true, alpha: true }}
-      >
-        <ambientLight intensity={0.5} />
-        <pointLight position={[10, 10, 10]} intensity={1} color="#4fc3f7" />
-        <pointLight position={[-10, -10, -10]} intensity={0.5} color="#a855f7" />
+          {showAxes && <CoordinateAxes highlightedAxis={highlightedAxis} />}
 
-        {showAxes && <CoordinateAxes highlightedAxis={highlightedAxis} />}
+          {/* Probability Chart Overlay - Now inside Canvas */}
+          <Html position={[-1.2, 1.2, 0]} transform={false} style={{ pointerEvents: 'none' }} zIndexRange={[100, 0]}>
+            <div className={`w-28 bg-black/60 backdrop-blur-md rounded-lg p-2 border border-cyan-500/20 text-[10px] font-mono shadow-lg select-none transition-opacity duration-300 ${hovered ? 'opacity-100' : 'opacity-70'} pointer-events-auto origin-top-left -translate-x-1/2 -translate-y-1/2 scale-90`}>
+              <h3 className="text-cyan-400 mb-1.5 font-bold flex items-center justify-between text-[9px]">
+                <span>Probabilities</span>
+              </h3>
+              <div className="space-y-1.5">
+                <div className="group">
+                  <div className="flex justify-between mb-0.5 text-gray-300">
+                    <span>|0⟩</span>
+                    <span>{(Math.max(0, Math.min(1, (1 + displayVector.z) / 2)) * 100).toFixed(0)}%</span>
+                  </div>
+                  <div className="w-full bg-gray-800/50 rounded-full h-1 overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-cyan-600 to-blue-500 rounded-full shadow-[0_0_8px_rgba(34,211,238,0.4)]"
+                      style={{ width: `${Math.max(0, Math.min(1, (1 + displayVector.z) / 2)) * 100}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="group">
+                  <div className="flex justify-between mb-0.5 text-gray-300">
+                    <span>|1⟩</span>
+                    <span>{(Math.max(0, Math.min(1, (1 - displayVector.z) / 2)) * 100).toFixed(0)}%</span>
+                  </div>
+                  <div className="w-full bg-gray-800/50 rounded-full h-1 overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-purple-600 to-pink-500 rounded-full shadow-[0_0_8px_rgba(168,85,247,0.4)]"
+                      style={{ width: `${Math.max(0, Math.min(1, (1 - displayVector.z) / 2)) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Html>
 
-        {/* --- SPHERE AESTHETICS (Glassy look) --- */}
-        <group>
-          {/* Wireframe - subtle */}
-          <mesh>
-            <sphereGeometry args={[1, 32, 24]} />
-            <meshBasicMaterial
-              color="#334155" // Slate-700
-              wireframe
-              transparent
-              opacity={0.15}
-            />
-          </mesh>
+          {/* --- SPHERE AESTHETICS (Glassy look) --- */}
+          <group>
+            {/* Wireframe - subtle */}
+            <mesh>
+              <sphereGeometry args={[1, 32, 24]} />
+              <meshBasicMaterial
+                color="#334155" // Slate-700
+                wireframe
+                transparent
+                opacity={0.15}
+              />
+            </mesh>
 
-          {/* Glass Surface - inner glow */}
-          <mesh>
-            <sphereGeometry args={[0.99, 64, 64]} />
-            <meshPhysicalMaterial
+            {/* Glass Surface - inner glow */}
+            <mesh>
+              <sphereGeometry args={[0.99, 64, 64]} />
+              <meshPhysicalMaterial
+                color="#ffffff"
+                transmission={0.9} // Glass
+                opacity={0.3}
+                transparent
+                roughness={0.1}
+                metalness={0.1}
+                clearcoat={1}
+                thickness={1}
+              />
+            </mesh>
+
+            {/* Equator Line */}
+            <Line
+              points={new Array(65).fill(0).map((_, i) => {
+                const angle = (i / 64) * Math.PI * 2;
+                return [Math.cos(angle), Math.sin(angle), 0] as [number, number, number];
+              })}
               color="#ffffff"
-              transmission={0.9} // Glass
-              opacity={0.3}
+              lineWidth={1}
               transparent
-              roughness={0.1}
-              metalness={0.1}
-              clearcoat={1}
-              thickness={1}
+              opacity={0.3}
             />
-          </mesh>
+          </group>
 
-          {/* Equator Line */}
-          <Line
-            points={new Array(65).fill(0).map((_, i) => {
-              const angle = (i / 64) * Math.PI * 2;
-              return [Math.cos(angle), Math.sin(angle), 0] as [number, number, number];
-            })}
-            color="#ffffff"
-            lineWidth={1}
-            transparent
-            opacity={0.3}
-          />
-        </group>
+          {/* State Marker & Vector */}
+          <QuantumStateMarker vector={displayVector} isAtDefault={isAtDefault} />
 
-        {/* State Marker & Vector */}
-        <QuantumStateMarker vector={displayVector} isAtDefault={isAtDefault} />
+          {interactive && <OrbitControls enablePan={false} maxDistance={10} minDistance={2} />}
+        </Canvas>
 
-        {interactive && <OrbitControls enablePan={false} maxDistance={10} minDistance={2} />}
-      </Canvas>
-
-      {/* Simple Phase Legend Overlay */}
-      <div className="absolute bottom-4 right-4 text-[10px] text-gray-500 font-mono flex flex-col items-end">
-        <div className="flex items-center gap-2 mb-1">
-          <span>Phase</span>
-          <div className="w-16 h-2 rounded-full bg-gradient-to-r from-red-500 via-green-500 to-blue-500 opacity-70"></div>
+        {/* Simple Phase Legend Overlay - Outside Canvas */}
+        <div className="absolute bottom-3 right-3 text-[10px] text-gray-500 font-mono flex flex-col items-end pointer-events-none">
+          <div className="flex items-center gap-2 mb-1">
+            <span>Phase</span>
+            <div className="w-12 h-1.5 rounded-full bg-gradient-to-r from-red-500 via-green-500 to-blue-500 opacity-70"></div>
+          </div>
+          <div className="whitespace-nowrap opacity-60">Drag • Zoom</div>
         </div>
-        <div>Drag to Rotate • Scroll to Zoom</div>
       </div>
-    </div>
+    </div >
   );
 };
 

@@ -302,7 +302,7 @@ export const suggestFixes = (code: string): CodeSuggestion[] => {
   let inferredQubits = 0;
   try {
     inferredQubits = parseQuantumCode(code).numQubits || 0;
-  } catch {}
+  } catch { }
 
   if (isJSON) {
     try {
@@ -346,7 +346,7 @@ export const suggestFixes = (code: string): CodeSuggestion[] => {
           }
         });
       }
-    } catch {}
+    } catch { }
     return suggestions;
   }
 
@@ -493,143 +493,20 @@ export const suggestFixes = (code: string): CodeSuggestion[] => {
   return suggestions;
 };
 
-import { executeQuantumCircuit, getJobStatus, getJobResult, type QuantumExecutionOptions, type QuantumExecutionResult } from '@/services/quantumAPI';
+// IBM Quantum integration removed
+export const executeOnIBMQuantum = async () => {
+  throw new Error('IBM Quantum integration currently disabled');
+};
 
-// Execute circuit on IBM Quantum after local simulation
-export async function executeOnIBMQuantum(
-  circuit: QuantumCircuit,
-  options: {
-    backend: 'aer_simulator' | 'ibm_simulator' | 'ibm_hardware';
-    token?: string;
-    shots?: number;
-    initialState?: string;
-    customState?: { alpha: string; beta: string };
-    autoExecute?: boolean; // If true, automatically execute after local simulation
-  } = { backend: 'aer_simulator', autoExecute: true }
-): Promise<{
-  localResult: ReturnType<typeof simulateCircuit>;
-  ibmResult?: QuantumExecutionResult;
-  jobId?: string;
-  status?: string;
-}> {
-  // First, run local simulation
-  const localResult = simulateCircuit(circuit);
+export const monitorIBMJob = async () => {
+  throw new Error('IBM Quantum integration currently disabled');
+};
 
-  if (!options.autoExecute) {
-    return { localResult };
-  }
+export const getIBMBackends = async () => {
+  return [];
+};
 
-  // Prepare circuit data for IBM Quantum
-  const circuitData = {
-    numQubits: circuit.numQubits,
-    gates: circuit.gates.map(gate => ({
-      name: gate.name,
-      qubits: gate.qubits,
-      parameters: gate.parameters || []
-    }))
-  };
-
-  const executionOptions: QuantumExecutionOptions = {
-    backend: options.backend,
-    token: options.token,
-    shots: options.shots || 1024,
-    initialState: options.initialState || 'ket0',
-    customState: options.customState || { alpha: '1', beta: '0' }
-  };
-
-  try {
-    const ibmResult = await executeQuantumCircuit(circuitData, executionOptions);
-
-    return {
-      localResult,
-      ibmResult,
-      jobId: ibmResult.jobId,
-      status: ibmResult.status
-    };
-  } catch (error) {
-    console.error('IBM Quantum execution failed:', error);
-    return {
-      localResult,
-      ibmResult: {
-        success: false,
-        method: 'error',
-        backend: options.backend,
-        executionTime: 0,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }
-    };
-  }
-}
-
-// Monitor IBM Quantum job status
-export async function monitorIBMJob(
-  jobId: string,
-  token: string,
-  onStatusUpdate?: (status: any) => void
-): Promise<QuantumExecutionResult> {
-  const maxRetries = 60; // 10 minutes with 10s intervals
-  const retryInterval = 10000; // 10 seconds
-
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      const status = await getJobStatus(jobId, token);
-
-      if (onStatusUpdate) {
-        onStatusUpdate(status);
-      }
-
-      if (status.status === 'COMPLETED') {
-        // Get final results
-        const result = await getJobResult(jobId, token);
-        return {
-          success: true,
-          method: 'ibm_hardware',
-          backend: status.backend || 'unknown',
-          executionTime: result.executionTime || 0,
-          qubitResults: result.results || [],
-          jobId,
-          status: 'COMPLETED'
-        };
-      } else if (status.status === 'FAILED' || status.status === 'ERROR') {
-        return {
-          success: false,
-          method: 'ibm_hardware',
-          backend: status.backend || 'unknown',
-          executionTime: 0,
-          error: status.statusMessage || 'Job failed',
-          jobId,
-          status: status.status
-        };
-      }
-
-      // Wait before next check
-      await new Promise(resolve => setTimeout(resolve, retryInterval));
-    } catch (error) {
-      console.error('Job monitoring error:', error);
-      // Continue monitoring despite errors
-    }
-  }
-
-  return {
-    success: false,
-    method: 'ibm_hardware',
-    backend: 'unknown',
-    executionTime: 0,
-    error: 'Job monitoring timeout',
-    jobId,
-    status: 'TIMEOUT'
-  };
-}
-
-// Get available IBM Quantum backends
-export async function getIBMBackends(token: string) {
-  const { getAvailableBackends } = await import('@/services/quantumAPI');
-  return getAvailableBackends(token);
-}
-
-// Validate IBM Quantum token
-export async function validateIBMToken(token: string) {
-  const { validateToken } = await import('@/services/quantumAPI');
-  return validateToken(token);
-}
+export const validateIBMToken = async () => {
+  return { valid: false, error: 'IBM integration disabled' };
+};
 

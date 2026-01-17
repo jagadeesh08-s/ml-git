@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Request, Depends, status
+from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -12,12 +13,10 @@ import threading
 from contextlib import asynccontextmanager
 
 # Import our modules
-from quantum_executor import execute_circuit_locally, execute_circuit_ibm, validate_circuit_data
+from quantum_executor import execute_circuit_locally, validate_circuit_data
 from quantum_api import (
     QuantumAPI, BackendType, QuantumExecutionOptions,
-    execute_quantum_circuit_sync, validate_token as api_validate_token,
-    get_available_backends as api_get_backends,
-    get_user_jobs as api_get_user_jobs
+    execute_quantum_circuit_sync
 )
 from quantum_knowledge_base import ask_ai_question
 from quantum_worker import QuantumWorker, QuantumWorkerPool, simulate_circuit_async
@@ -44,8 +43,15 @@ from medical_core import medical_core, download_csv_from_drive
 from dotenv import load_dotenv
 load_dotenv()
 
+# IBM Quantum Modules (REMOVED)
+
+
 # Create FastAPI app
 app = FastAPI(title="Quantum Backend API", version="1.0.0")
+
+# Import and include Analytics Router
+from job_analytics import router as analytics_router
+app.include_router(analytics_router)
 
 # ============================================================================
 # CORS Configuration - FULLY OPEN (No Restrictions)
@@ -153,36 +159,13 @@ async def clear_cache():
         "message": "Cache cleared successfully"
     }
 
-# IBM Quantum authentication endpoint
-@app.post("/api/quantum/auth")
-async def authenticate_ibm_quantum(request: Request, data: Dict[str, Any]):
-    try:
-        token = data.get("token")
-        backend = data.get("backend", "ibmq_qasm_simulator")
+# IBM Quantum authentication endpoint (REMOVED)
 
-        if not token:
-            raise HTTPException(status_code=400, detail="IBM Quantum token is required")
 
-        # Validate token using unified API
-        valid, error = await api_validate_token(token)
+# Keep existing endpoints for backward compat
 
-        if not valid:
-            raise HTTPException(status_code=401, detail=error or "Invalid IBM Quantum token")
+# Authentication error (REMOVED)
 
-        # Get backend information
-        backend_info = await get_backend_info(token, backend)
-
-        return {
-            "success": True,
-            "backend": backend_info,
-            "message": f"Connected to {backend_info['name']}"
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"Authentication error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to authenticate with IBM Quantum")
 
 # Circuit execution endpoint
 @app.post("/api/quantum/execute")
@@ -222,23 +205,15 @@ async def execute_circuit(request: Request, data: Dict[str, Any]):
                 backend = BackendType.CUSTOM_SIMULATOR
             elif backend_name == "wasm":
                 backend = BackendType.WASM
-            elif "simulator" in backend_name:
-                backend = BackendType.IBM_SIMULATOR
-            elif backend_name.startswith("ibm") or backend_name.startswith("ibmq"):
-                backend = BackendType.IBM_HARDWARE
             else:
-                backend = BackendType(backend_name)  # Try direct mapping
+                # Fallback to local for any other request
+                backend = BackendType.LOCAL
         except ValueError:
             print(f"Backend mapping error: {backend_name}")
             raise HTTPException(status_code=400, detail=f"Unsupported backend: {backend_name}")
 
-        # Token validation for non-local backends
-        if backend != BackendType.LOCAL and backend != BackendType.CUSTOM_SIMULATOR and not token:
-            # Check if token is available in environment
-            if not os.environ.get("IBM_QUANTUM_TOKEN"):
-                raise HTTPException(status_code=400, detail="IBM Quantum token is required for non-local execution")
-            # If strictly required, we could set token = os.environ.get("IBM_QUANTUM_TOKEN") here, 
-            # but execute_circuit_ibm handles the lookup now.
+        # Token validation disabled (REMOVED)
+
 
         # Create execution options
         options = QuantumExecutionOptions(
@@ -364,123 +339,23 @@ async def execute_circuit_statevector(data: Dict[str, Any]):
 
 # Get available backends
 @app.get("/api/quantum/backends")
-async def get_backends(token: Optional[str] = None, instance: Optional[str] = None):
+async def get_backends():
     try:
-        print(f"Request for backends received. Token provided: {'YES' if token else 'NO'}")
-
-        # Use unified API to get backends
-        backends, error = await api_get_backends(token, instance)
-
-        return {
-            "success": True,
-            "backends": backends,
-            "isFallback": bool(error),
-            "error": error
-        }
-
-    except Exception as e:
-        print(f"Backend listing error: {e}")
-        # Return default backends even on error
+        # Return only local backends
         default_backends = [
             {"id": "local", "name": "Local Simulator", "status": "available", "qubits": 24, "type": "simulator"},
             {"id": "custom_simulator", "name": "Custom Simulator", "status": "available", "qubits": 20, "type": "simulator"},
-            {"id": "ibmq_qasm_simulator", "name": "IBM QASM Simulator", "status": "available", "qubits": 32, "type": "simulator"},
             {"id": "simulator_statevector", "name": "Statevector Simulator", "status": "available", "qubits": 24, "type": "simulator"},
-            {"id": "simulator_mps", "name": "Matrix Product State Simulator", "status": "available", "qubits": 100, "type": "simulator"},
-            {"id": "ibmq_manila", "name": "IBM Manila", "status": "available", "qubits": 5, "type": "hardware"},
-            {"id": "ibmq_lima", "name": "IBM Lima", "status": "available", "qubits": 5, "type": "hardware"},
-            {"id": "ibmq_belem", "name": "IBM Belem", "status": "available", "qubits": 5, "type": "hardware"},
-            {"id": "ibmq_quito", "name": "IBM Quito", "status": "available", "qubits": 5, "type": "hardware"},
-            {"id": "ibm_brisbane", "name": "IBM Brisbane", "status": "available", "qubits": 127, "type": "hardware"},
-            {"id": "ibm_sherbrooke", "name": "IBM Sherbrooke", "status": "available", "qubits": 127, "type": "hardware"}
+            {"id": "simulator_mps", "name": "Matrix Product State Simulator", "status": "available", "qubits": 100, "type": "simulator"}
         ]
         return {"success": True, "backends": default_backends}
 
-# Get job status
-@app.get("/api/quantum/job/{job_id}/status")
-async def get_job_status(job_id: str, credentials: HTTPAuthorizationCredentials = Depends(security)):
-    try:
-        token = credentials.credentials if credentials else None
-
-        if not token or not job_id:
-            raise HTTPException(status_code=400, detail="Token and job ID are required")
-
-        # Use QuantumAPI to get job status
-        api = QuantumAPI()
-        job_status = await api.get_job_status(job_id, token)
-        
-        return {
-            "success": True,
-            "jobId": job_status.job_id,
-            "status": job_status.status,
-            "statusMessage": job_status.status_message,
-            "progress": job_status.progress,
-            "estimatedTime": job_status.estimated_time,
-            "backend": job_status.backend,
-            "results": job_status.results
-        }
-
-    except HTTPException:
-        raise
     except Exception as e:
-        print(f"Job status error: {e}")
-        # Return error status
-        return {
-            "success": False,
-            "jobId": job_id,
-            "status": "ERROR",
-            "statusMessage": f"Failed to get job status: {str(e)}",
-            "progress": 0,
-            "estimatedTime": None,
-            "results": None
-        }
+        print(f"Backend listing error: {e}")
+        return {"success": True, "backends": []}
 
-# Get job result
-@app.get("/api/quantum/job/{job_id}/result")
-async def get_job_result(job_id: str, credentials: HTTPAuthorizationCredentials = Depends(security)):
-    try:
-        token = credentials.credentials if credentials else None
+# Job management endpoints (REMOVED)
 
-        if not token or not job_id:
-            raise HTTPException(status_code=400, detail="Token and job ID are required")
-
-        # Use QuantumAPI to get job result
-        api = QuantumAPI()
-        job_result = await api.get_job_result(job_id, token)
-        
-        return job_result
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"Job result error: {e}")
-        return {
-            "success": False,
-            "jobId": job_id,
-            "results": None,
-            "executionTime": 0,
-            "backend": "unknown",
-            "error": f"Failed to get job result: {str(e)}"
-        }
-
-# Get user jobs
-@app.get("/api/quantum/jobs")
-async def get_user_jobs(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    try:
-        token = credentials.credentials if credentials else None
-
-        if not token:
-            raise HTTPException(status_code=400, detail="Token is required")
-
-        # Use unified API to get user jobs
-        jobs = await api_get_user_jobs(token)
-        return {"success": True, "jobs": jobs}
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"User jobs error: {e}")
-        return {"success": True, "jobs": []}
 
 # AI Assistant endpoint
 @app.post("/api/ai/ask")
@@ -795,6 +670,66 @@ async def execute_circuit_async(data: Dict[str, Any]):
     except Exception as e:
         print(f"Async execution error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to execute circuit asynchronously: {str(e)}")
+
+
+# Reduced states endpoint
+@app.post("/api/reduced")
+async def compute_reduced(data: Dict[str, Any]):
+    """
+    Compute reduced density matrices for the given code.
+    Accepts: { code: string }
+    Returns: { circuit: object, reducedStates: array }
+    """
+    try:
+        code = data.get("code", "")
+        if not code:
+            raise HTTPException(status_code=400, detail="Code is required")
+
+        # Parse the code into a circuit object
+        from quantum_code_parser import parse_quantum_code
+        from quantum_simulation import simulate_circuit as simulate_circuit_py
+
+        circuit_obj = parse_quantum_code(code)
+        
+        # Simulate locally (Python density matrix simulator)
+        result = simulate_circuit_py(circuit_obj)
+        
+        # Serialize for frontend
+        reduced_states = []
+        if result.reducedStates:
+            reduced_states = [
+                {
+                    "matrix": state.matrix,
+                    "blochVector": state.blochVector,
+                    "purity": state.purity,
+                    "entanglement": state.entanglement,
+                    "superposition": state.superposition
+                }
+                for state in result.reducedStates
+            ]
+
+        # Convert Simulation circuit to frontend format
+        frontend_circuit = {
+            "numQubits": circuit_obj.num_qubits,
+            "gates": [
+                {
+                    "name": g.name,
+                    "qubits": g.qubits,
+                    "parameters": g.parameters
+                }
+                for g in circuit_obj.gates
+            ]
+        }
+
+        return {
+            "success": True,
+            "circuit": frontend_circuit,
+            "reducedStates": reduced_states
+        }
+
+    except Exception as e:
+        print(f"Reduced state computation error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to compute reduced states: {str(e)}")
 
 # Worker Pool Status
 @app.get("/api/quantum/workers/status")

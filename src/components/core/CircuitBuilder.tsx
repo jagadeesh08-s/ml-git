@@ -15,8 +15,6 @@ import CircuitAnalysis from './CircuitAnalysis';
 import { simulateCircuit, computeGateOutputState } from '@/utils/quantum/quantumSimulation';
 import type { QuantumGate } from '@/utils/quantum/circuitOperations';
 import { toast } from 'sonner';
-import { useIBMQuantum } from '@/contexts/IBMQuantumContext';
-import { IBMQuantumConnection } from '../tools/IBMQuantumConnection';
 
 // Utility function to generate computational basis states for n qubits
 const generateComputationalBasisStates = (numQubits: number): Array<{ label: string; value: string; notation: 'bra-ket' }> => {
@@ -92,45 +90,9 @@ export const CircuitBuilder: React.FC<CircuitBuilderProps> = React.memo(({
   const defaultKetStates = Array(numQubits).fill('|0⟩');
   const [initialKetStates, setInitialKetStates] = useState<string[]>(defaultKetStates);
 
-  // IBM Quantum Integration
-  const { isAuthenticated, submitJob, selectedBackend, isLoading: isIBMLoading } = useIBMQuantum();
-  const [isIBMDialogOpen, setIsIBMDialogOpen] = useState(false);
-
-  // Handle Run on IBM Quantum
+  // Handle Run on IBM Quantum (REMOVED)
   const handleRunOnIBM = async () => {
-    if (!isAuthenticated) {
-      toast.error('Please connect to IBM Quantum first');
-      setIsIBMDialogOpen(true);
-      return;
-    }
-
-    if (!selectedBackend) {
-      toast.error('Please select a backend first');
-      setIsIBMDialogOpen(true);
-      return;
-    }
-
-    try {
-      // Construct circuit payload for backend
-      const circuitPayload = {
-        numQubits,
-        gates: circuitGates.map(g => ({
-          name: g.gate.name,
-          qubits: g.qubits,
-          parameters: g.gate.parameters
-        }))
-      };
-
-      // Submit job
-      await submitJob(circuitPayload, 1024); // Default 1024 shots
-
-      // Open dialog to show progress
-      setIsIBMDialogOpen(true);
-
-    } catch (error) {
-      console.error("Failed to run on IBM:", error);
-      // Error handled in submitJob
-    }
+    toast.error('IBM Quantum integration is disabled in this version.');
   };
 
   // Function to recompute all gate states based on circuit flow
@@ -611,22 +573,8 @@ export const CircuitBuilder: React.FC<CircuitBuilderProps> = React.memo(({
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground mr-2">Qubits: {numQubits}</span>
 
-                  {/* IBM Quantum Button */}
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={handleRunOnIBM}
-                    disabled={isIBMLoading || circuitGates.length === 0}
-                    className="h-8 px-3 bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-500/50 shadow-sm transition-all"
-                    title="Run on IBM Quantum Hardware"
-                  >
-                    {isIBMLoading ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                    ) : (
-                      <Zap className="h-3.5 w-3.5 mr-1.5 fill-indigo-200" />
-                    )}
-                    Run on IBM
-                  </Button>
+                  {/* IBM Quantum Button (REMOVED) */}
+
 
                   <Button
                     variant="outline"
@@ -1060,12 +1008,6 @@ export const CircuitBuilder: React.FC<CircuitBuilderProps> = React.memo(({
           />
         </div>
       </div>
-
-      <IBMQuantumConnection
-        isOpen={isIBMDialogOpen}
-        onClose={() => setIsIBMDialogOpen(false)}
-      />
-
     </>
   );
 });

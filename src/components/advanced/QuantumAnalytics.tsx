@@ -23,7 +23,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { QuantumCircuit, DensityMatrix } from '@/utils/quantumSimulation';
+import type { QuantumCircuit, DensityMatrix } from '@/utils/quantum/quantumSimulation';
 
 interface PerformanceMetrics {
   executionTime: number;
@@ -94,7 +94,7 @@ const QuantumAnalytics: React.FC<QuantumAnalyticsProps> = ({
 
     // Simulate benchmark execution
     const algorithms = ['Bell State', 'GHZ State', 'Quantum Teleportation', 'Grover Search'];
-    const backends = ['local', 'ibmq_qasm_simulator', 'ibmq_lima', 'ibmq_belem'];
+    const backends = ['local', 'aer_simulator'];
 
     const newBenchmarks: BenchmarkResult[] = [];
 
@@ -291,8 +291,8 @@ const QuantumAnalytics: React.FC<QuantumAnalyticsProps> = ({
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm">Method</span>
-                  <Badge className={executionMethod === 'ibm' ? 'bg-blue-500' : 'bg-green-500'}>
-                    {executionMethod === 'ibm' ? 'IBM Quantum' : 'Local'}
+                  <Badge className="bg-green-500">
+                    Local Simulator
                   </Badge>
                 </div>
                 {backend && (

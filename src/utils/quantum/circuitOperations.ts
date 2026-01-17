@@ -139,15 +139,23 @@ const applySingleQubitGateComplex = (state: ComplexMatrix, gate: ComplexMatrix, 
 const applyTwoQubitGateComplex = (state: ComplexMatrix, gate: ComplexMatrix, q1: number, q2: number, num: number): ComplexMatrix => {
   const dim = 1 << num;
 
-  // Initialize U with valid complex(0,0) objects immediately, avoiding null issues
+  // Qubits must be within [0, num-1]
+  if (q1 >= num || q2 >= num || q1 < 0 || q2 < 0) {
+    console.error(`Invalid qubit indices for 2-qubit gate: q${q1}, q${q2} on ${num} qubits.`);
+    return state;
+  }
+
+  // Initialize U with valid complex(0,0) objects immediately
   const U: ComplexMatrix = Array.from({ length: dim }, () =>
     Array.from({ length: dim }, () => ({ real: 0, imag: 0 }))
   );
 
   for (let r = 0; r < dim; r++) {
-    // For each basis state |r>, find what it maps to.
-    const b1 = (r >> (num - 1 - q1)) & 1; // Assuming q0 is MSB
-    const b2 = (r >> (num - 1 - q2)) & 1;
+    const shift1 = num - 1 - q1;
+    const shift2 = num - 1 - q2;
+
+    const b1 = (r >> shift1) & 1;
+    const b2 = (r >> shift2) & 1;
     const inIdx = b1 * 2 + b2;
 
     for (let outIdx = 0; outIdx < 4; outIdx++) {
@@ -158,12 +166,14 @@ const applyTwoQubitGateComplex = (state: ComplexMatrix, gate: ComplexMatrix, q1:
       const out_b2 = outIdx & 1;
 
       let c = r;
-      c &= ~(1 << (num - 1 - q1));
-      c &= ~(1 << (num - 1 - q2));
-      c |= (out_b1 << (num - 1 - q1));
-      c |= (out_b2 << (num - 1 - q2));
+      c &= ~(1 << shift1);
+      c &= ~(1 << shift2);
+      c |= (out_b1 << shift1);
+      c |= (out_b2 << shift2);
 
-      U[c][r] = val;
+      if (U[c]) {
+        U[c][r] = val;
+      }
     }
   }
 
@@ -174,15 +184,25 @@ const applyTwoQubitGateComplex = (state: ComplexMatrix, gate: ComplexMatrix, q1:
 const applyThreeQubitGateComplex = (state: ComplexMatrix, gate: ComplexMatrix, q1: number, q2: number, q3: number, num: number): ComplexMatrix => {
   const dim = 1 << num;
 
+  // Qubits must be within [0, num-1]
+  if (q1 >= num || q2 >= num || q3 >= num || q1 < 0 || q2 < 0 || q3 < 0) {
+    console.error(`Invalid qubit indices for 3-qubit gate: q${q1}, q${q2}, q${q3} on ${num} qubits.`);
+    return state;
+  }
+
   // Initialize U with valid complex(0,0) objects immediately
   const U: ComplexMatrix = Array.from({ length: dim }, () =>
     Array.from({ length: dim }, () => ({ real: 0, imag: 0 }))
   );
 
   for (let r = 0; r < dim; r++) {
-    const b1 = (r >> (num - 1 - q1)) & 1;
-    const b2 = (r >> (num - 1 - q2)) & 1;
-    const b3 = (r >> (num - 1 - q3)) & 1;
+    const shift1 = num - 1 - q1;
+    const shift2 = num - 1 - q2;
+    const shift3 = num - 1 - q3;
+
+    const b1 = (r >> shift1) & 1;
+    const b2 = (r >> shift2) & 1;
+    const b3 = (r >> shift3) & 1;
 
     const inIdx = b1 * 4 + b2 * 2 + b3;
 
@@ -195,15 +215,17 @@ const applyThreeQubitGateComplex = (state: ComplexMatrix, gate: ComplexMatrix, q
       const out_b3 = outIdx & 1;
 
       let c = r;
-      c &= ~(1 << (num - 1 - q1));
-      c &= ~(1 << (num - 1 - q2));
-      c &= ~(1 << (num - 1 - q3));
+      c &= ~(1 << shift1);
+      c &= ~(1 << shift2);
+      c &= ~(1 << shift3);
 
-      c |= (out_b1 << (num - 1 - q1));
-      c |= (out_b2 << (num - 1 - q2));
-      c |= (out_b3 << (num - 1 - q3));
+      c |= (out_b1 << shift1);
+      c |= (out_b2 << shift2);
+      c |= (out_b3 << shift3);
 
-      U[c][r] = val;
+      if (U[c]) {
+        U[c][r] = val;
+      }
     }
   }
 
@@ -276,22 +298,44 @@ export const simulateCircuit = (
 export const computeGateOutputState = (
   gate: QuantumGate,
   inputState: any,
-  numQubits: number
+  workspaceNumQubits: number
 ): any => {
-  // Use full simulation for single step to get accurate bloch vector
-  // We compute gate applied to |0> for the gate icon usually
+  // Use a temporary system that matches the gate requirements
+  const gateQubits = gate.qubits;
+  const maxQubit = Math.max(...gateQubits, 0);
+  const n = Math.max(workspaceNumQubits, maxQubit + 1, gateQubits.length);
 
-  let rhoInput: ComplexMatrix;
-  rhoInput = [[complex(1, 0), complex(0, 0)], [complex(0, 0), complex(0, 0)]]; // Default |0>
+  // Initialize state based on inputState string if possible
+  // inputState is often '|0⟩', '|1⟩', '|00⟩', etc.
+  let rhoInput: ComplexMatrix = createInitialStateComplex(n);
+
+  try {
+    if (typeof inputState === 'string' && inputState.startsWith('|') && inputState.endsWith('⟩')) {
+      const ket = inputState.slice(1, -1);
+      // For simple computational basis states
+      if (ket.length === n && /^[01]+$/.test(ket)) {
+        const idx = parseInt(ket, 2);
+        rhoInput = Array(1 << n).fill(0).map(() => Array(1 << n).fill(complex(0, 0)));
+        if (rhoInput[idx]) {
+          rhoInput[idx][idx] = complex(1, 0);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("Could not parse input state for gate preview:", e);
+  }
 
   // Apply Gate
-  const rhoOutput = applyGate(rhoInput, gate, 1);
+  const rhoOutput = applyGate(rhoInput, gate, n);
 
-  // Calculate Bloch
-  const bloch = calculateBlochVector(rhoOutput);
+  // Calculate Bloch for the FIRST qubit involved in the gate (for visualization)
+  // In a multi-qubit system, this is a simplified view
+  const targetQubit = gateQubits[0] || 0;
+  const reduced = partialTrace(rhoOutput, targetQubit, n);
+  const bloch = calculateBlochVector(reduced.matrix);
 
-  // Identify
-  return identifyQuantumStateFromBloch(bloch, rhoOutput);
+  // Identify state
+  return identifyQuantumStateFromBloch(bloch, reduced.matrix);
 };
 
 

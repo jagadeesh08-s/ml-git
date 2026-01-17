@@ -1,38 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sun, Moon, Monitor, Palette, Zap, Star, Eye, Coffee, Atom, Waves, Link, ArrowRight, Shuffle } from 'lucide-react';
-
-type ThemeType = 'light' | 'dark' | 'system' | 'quantum' | 'neon' | 'minimal' | 'cosmic' | 'retro' | 'quantum-light' | 'superposition' | 'entanglement' | 'tunneling' | 'decoherence';
+import { useTheme, Theme } from '@/components/general/ThemeProvider';
 
 export const ThemeToggle: React.FC = () => {
-  const [theme, setTheme] = useState<ThemeType>(() => {
-    return (localStorage.getItem('theme') as ThemeType) || 'quantum';
-  });
+  const { theme, setTheme } = useTheme();
 
-  useEffect(() => {
-    let applied = theme;
-    if (theme === 'system') {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      applied = prefersDark ? 'dark' : 'light';
-    }
-
-    // Remove all theme classes
-    document.documentElement.classList.remove('light', 'dark', 'quantum', 'neon', 'minimal', 'cosmic', 'retro', 'quantum-light', 'superposition', 'entanglement', 'tunneling', 'decoherence');
-
-    // Add the applied theme
-    document.documentElement.classList.add(applied);
-
-    // Add smooth transition class for theme changes
-    document.documentElement.classList.add('theme-transitioning');
-    setTimeout(() => {
-      document.documentElement.classList.remove('theme-transitioning');
-    }, 300);
-
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-
-  const getIcon = (themeName: ThemeType) => {
+  const getIcon = (themeName: Theme) => {
     switch (themeName) {
       case 'light':
         return <Sun className="h-4 w-4" />;
@@ -65,7 +40,7 @@ export const ThemeToggle: React.FC = () => {
     }
   };
 
-  const themes: { value: ThemeType; label: string }[] = [
+  const themes: { value: Theme; label: string }[] = [
     { value: 'quantum', label: 'Quantum' },
     { value: 'quantum-light', label: 'Quantum Light' },
     { value: 'superposition', label: 'Superposition' },
@@ -82,7 +57,7 @@ export const ThemeToggle: React.FC = () => {
   ];
 
   return (
-    <Select value={theme} onValueChange={(value: ThemeType) => setTheme(value)}>
+    <Select value={theme} onValueChange={(value: Theme) => setTheme(value)}>
       <SelectTrigger className="w-32 h-8 border border-primary/20 hover:bg-primary/10 transition-colors relative z-10">
         <div className="flex items-center gap-2">
           <motion.div

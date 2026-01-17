@@ -1,1 +1,0 @@
-{"backend":"local","circuit":{"numQubits":1,"gates":[{"name":"H","qubits":[0]}]},"initialState":"ket0","customState":{"alpha":"1","beta":"0"},"shots":1024}  

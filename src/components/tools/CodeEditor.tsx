@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Editor, OnMount } from '@monaco-editor/react';
@@ -7,13 +8,13 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  Play, 
-  Download, 
-  Save, 
-  Share2, 
-  AlertCircle, 
-  CheckCircle, 
+import {
+  Play,
+  Download,
+  Save,
+  Share2,
+  AlertCircle,
+  CheckCircle,
   StepForward,
   RotateCcw,
   FileText,
@@ -32,12 +33,12 @@ import CircuitDiagram from '../core/CircuitDiagram';
 import BlochSphere3D from '../core/BlochSphere';
 import StepByStepExecution from '../advanced/StepByStepExecution';
 import QubitStateTable from '../core/QubitStateTable';
-import { 
-  simulateCircuit, 
-  parseQuantumCode, 
+import {
+  simulateCircuit,
+  parseQuantumCode,
   validateQuantumCode,
   suggestFixes,
-  type QuantumCircuit, 
+  type QuantumCircuit,
   type DensityMatrix,
   type CodeError,
   type CodeSuggestion
@@ -724,7 +725,7 @@ qc.measure_all()
       list.unshift({ id, name: id, createdAt: project.timestamp });
       localStorage.setItem(listKey, JSON.stringify(list));
       localStorage.setItem(id, JSON.stringify(project));
-    } catch {}
+    } catch { }
 
     // Ask to download JSON/QASM
     const choice = window.prompt('Download format? Enter json, qasm, both, or cancel', 'json');
@@ -832,7 +833,7 @@ qc.measure_all()
               return;
             }
           }
-        } catch {}
+        } catch { }
       }
       // Fallback to local
       const parsed = parseQuantumCode(code);
@@ -892,7 +893,7 @@ qc.measure_all()
   const handleLoadProjectClick = () => {
     try {
       fileInputRef.current?.click();
-    } catch {}
+    } catch { }
   };
 
   const handleDownloadPanelPng = async (index: number) => {
@@ -905,7 +906,7 @@ qc.measure_all()
       a.href = url;
       a.download = `qubit_${index}_analysis.png`;
       a.click();
-    } catch {}
+    } catch { }
   };
 
   const handleDownloadPanelPdf = async (index: number) => {
@@ -922,7 +923,7 @@ qc.measure_all()
       pdf.text(`Quantum State Analysis - Qubit ${index}`, 40, 40);
       pdf.addImage(imgData, 'PNG', 40, 60, imgWidth, imgHeight);
       pdf.save(`qubit_${index}_analysis.pdf`);
-    } catch {}
+    } catch { }
   };
 
   // Load sample into editor
@@ -937,7 +938,7 @@ qc.measure_all()
         const parsedCircuit = parseQuantumCode(sample);
         setCircuit(parsedCircuit);
         onCircuitChange?.(parsedCircuit);
-      } catch {}
+      } catch { }
     }
   };
 
@@ -951,7 +952,7 @@ qc.measure_all()
         const parsedCircuit = parseQuantumCode(qasm);
         setCircuit(parsedCircuit);
         onCircuitChange?.(parsedCircuit);
-      } catch {}
+      } catch { }
     }
   };
 
@@ -1316,62 +1317,82 @@ qc.measure_all()
                                   <div className="p-3 rounded-lg bg-muted/20 text-center font-medium">Z: {state.blochVector.z.toFixed(3)}</div>
                                 </div>
 
-                                {/* Superposition */}
-                                <div className="space-y-2">
-                                  <div className="font-semibold text-accent">Superposition</div>
-                                  {(() => {
-                                    const prob0 = Number(state.matrix[0][0]);
-                                    const prob1 = Number(state.matrix[1][1]);
-                                    const alphaMag = Math.sqrt(Math.max(prob0, 0));
-                                    const betaMag = Math.sqrt(Math.max(prob1, 0));
-                                    const rho01 = state.matrix[0][1] as any;
-                                    const phase = Math.atan2(0, typeof rho01 === 'number' ? rho01 : 0);
-                                    return (
-                                      <div className="font-mono text-xs space-y-1 bg-muted/20 rounded p-2">
-                                        <div>|ψ⟩ = α|0⟩ + β|1⟩</div>
-                                        <div>α ≈ {alphaMag.toFixed(3)} (real: {alphaMag.toFixed(3)}, imag: 0.000)</div>
-                                        <div>β ≈ {betaMag.toFixed(3)} (real: {betaMag.toFixed(3)}, imag: 0.000)</div>
-                                        <div>phase φ ≈ {isFinite(phase) ? phase.toFixed(3) : '0.000'} rad</div>
+                                {(() => {
+                                  // Helper to safely get real part
+                                  const getReal = (v: any) => (typeof v === 'object' && v !== null && 'real' in v) ? v.real : Number(v);
+                                  // Helper to format complex number
+                                  const formatComplexValue = (v: any) => {
+                                    if (typeof v === 'number') return v.toFixed(3);
+                                    if (typeof v === 'object' && v !== null && 'real' in v && 'imag' in v) {
+                                      const sign = v.imag >= 0 ? '+' : '-';
+                                      return `${v.real.toFixed(3)} ${sign} ${Math.abs(v.imag).toFixed(3)}i`;
+                                    }
+                                    return String(v);
+                                  };
+
+                                  const prob0 = getReal(state.matrix[0][0]);
+                                  const prob1 = getReal(state.matrix[1][1]);
+                                  const alphaMag = Math.sqrt(Math.max(prob0, 0));
+                                  const betaMag = Math.sqrt(Math.max(prob1, 0));
+
+                                  // Safe phase calculation
+                                  const rho01 = state.matrix[0][1];
+                                  const rho01Real = getReal(rho01);
+                                  const rho01Imag = (typeof rho01 === 'object' && rho01 !== null && 'imag' in rho01) ? (rho01 as any).imag : 0;
+                                  // Phase of off-diagonal term (coherence) typically relates to relative phase
+                                  const phase = Math.atan2(rho01Imag, rho01Real);
+
+                                  return (
+                                    <>
+                                      {/* Superposition */}
+                                      <div className="space-y-2">
+                                        <div className="font-semibold text-accent">Superposition</div>
+                                        <div className="font-mono text-xs space-y-1 bg-muted/20 rounded p-2">
+                                          <div>|ψ⟩ = α|0⟩ + β|1⟩</div>
+                                          <div>α ≈ {alphaMag.toFixed(3)}</div>
+                                          <div>β ≈ {betaMag.toFixed(3)}</div>
+                                          <div>phase φ ≈ {isFinite(phase) ? phase.toFixed(3) : '0.000'} rad</div>
+                                        </div>
                                       </div>
-                                    );
-                                  })()}
-                                </div>
 
-                                {/* Probabilities */}
-                                <div className="space-y-2">
-                                  <div className="font-semibold text-accent">Probability Amplitudes</div>
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <div className="p-2 rounded bg-muted/20">|0⟩: {Math.sqrt(Number(state.matrix[0][0])).toFixed(3)}</div>
-                                    <div className="p-2 rounded bg-muted/20">|1⟩: {Math.sqrt(Number(state.matrix[1][1])).toFixed(3)}</div>
-                                  </div>
-                                </div>
-
-                                {/* Reduced density matrix formatted */}
-                                <div className="space-y-2">
-                                  <div className="font-semibold text-accent">Reduced Density Matrix</div>
-                                  <div className="rounded bg-muted/20 p-3 font-mono text-xs inline-block">
-                                    <div className="flex items-start gap-3">
-                                      <span>[</span>
-                                      <div className="grid grid-cols-2 gap-x-6 gap-y-1">
-                                        <div>{Number(state.matrix[0][0]).toFixed(3)}</div>
-                                        <div>{(state.matrix[0][1] as any).toFixed ? (state.matrix[0][1] as any).toFixed(3) : state.matrix[0][1]}</div>
-                                        <div>{(state.matrix[1][0] as any).toFixed ? (state.matrix[1][0] as any).toFixed(3) : state.matrix[1][0]}</div>
-                                        <div>{Number(state.matrix[1][1]).toFixed(3)}</div>
+                                      {/* Probabilities */}
+                                      <div className="space-y-2">
+                                        <div className="font-semibold text-accent">Probability Amplitudes</div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <div className="p-2 rounded bg-muted/20">|0⟩: {Math.sqrt(Math.max(prob0, 0)).toFixed(3)}</div>
+                                          <div className="p-2 rounded bg-muted/20">|1⟩: {Math.sqrt(Math.max(prob1, 0)).toFixed(3)}</div>
+                                        </div>
                                       </div>
-                                      <span>]</span>
-                                    </div>
-                                  </div>
-                                </div>
 
-                                {/* Entanglement */}
-                                <div className="space-y-2">
-                                  <div className="font-semibold text-accent">Entanglement</div>
-                                  <div className="p-2 rounded bg-muted/20">
-                                    {circuit && circuit.numQubits > 1
-                                      ? `Estimated measure: ${(state.entanglement ?? 0).toFixed(3)}`
-                                      : 'No entanglement detected.'}
-                                  </div>
-                                </div>
+                                      {/* Reduced density matrix formatted */}
+                                      <div className="space-y-2">
+                                        <div className="font-semibold text-accent">Reduced Density Matrix</div>
+                                        <div className="rounded bg-muted/20 p-3 font-mono text-xs inline-block">
+                                          <div className="flex items-start gap-3">
+                                            <span>[</span>
+                                            <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+                                              <div>{formatComplexValue(state.matrix[0][0])}</div>
+                                              <div>{formatComplexValue(state.matrix[0][1])}</div>
+                                              <div>{formatComplexValue(state.matrix[1][0])}</div>
+                                              <div>{formatComplexValue(state.matrix[1][1])}</div>
+                                            </div>
+                                            <span>]</span>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Entanglement */}
+                                      <div className="space-y-2">
+                                        <div className="font-semibold text-accent">Entanglement</div>
+                                        <div className="p-2 rounded bg-muted/20">
+                                          {circuit && circuit.numQubits > 1
+                                            ? `Estimated measure: ${(state.entanglement ?? 0).toFixed(3)}`
+                                            : 'No entanglement detected.'}
+                                        </div>
+                                      </div>
+                                    </>
+                                  );
+                                })()}
                               </div>
 
                               {/* Export buttons with optimal web layout */}
@@ -1482,5 +1503,5 @@ function applyFix(fix: { startLine: number; startColumn: number; endLine: number
     // use global monaco/editor from the mounted refs via window dispatch
     const evt = new CustomEvent('quantum-apply-fix', { detail: fix });
     window.dispatchEvent(evt);
-  } catch {}
+  } catch { }
 }

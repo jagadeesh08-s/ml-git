@@ -4,8 +4,7 @@
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || import.meta.env.REACT_APP_API_URL) || 'http://localhost:3006';
 
 export interface QuantumExecutionOptions {
-  backend: 'local' | 'aer_simulator' | 'ibm_simulator' | 'ibm_hardware' | 'wasm';
-  token?: string;
+  backend: 'local' | 'aer_simulator' | 'wasm';
   shots?: number;
   initialState?: string;
   customState?: { alpha: string; beta: string };
@@ -75,7 +74,6 @@ export async function executeQuantumCircuit(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        token: options.token,
         backend: options.backend,
         circuit,
         initialState: options.initialState || 'ket0',
@@ -103,120 +101,8 @@ export async function executeQuantumCircuit(
   }
 }
 
-// Get job status
-export async function getJobStatus(jobId: string, token: string): Promise<JobStatus> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/quantum/job/${jobId}/status`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    });
+// Cache management functions (REMOVED JOB METHODS)
 
-    if (!response.ok) {
-      throw new Error('Failed to get job status');
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('Job status error:', error);
-    return {
-      jobId,
-      status: 'ERROR',
-      statusMessage: 'Failed to get job status',
-      progress: 0,
-      estimatedTime: null,
-    };
-  }
-}
-
-// Get job results
-export async function getJobResult(jobId: string, token: string): Promise<any> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/quantum/job/${jobId}/result`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to get job result');
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('Job result error:', error);
-    return {
-      success: false,
-      error: 'Failed to get job result',
-    };
-  }
-}
-
-// Validate IBM Quantum token
-export async function validateToken(token: string): Promise<{ valid: boolean; error?: string }> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/quantum/auth`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ token }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      return { valid: false, error: errorData.error };
-    }
-
-    return { valid: true };
-  } catch (error) {
-    console.error('Token validation error:', error);
-    return {
-      valid: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-}
-
-// Get available backends
-export async function getAvailableBackends(token: string): Promise<any[]> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/quantum/backends?token=${encodeURIComponent(token)}`);
-
-    if (!response.ok) {
-      throw new Error('Failed to get backends');
-    }
-
-    const data = await response.json();
-    return data.backends || [];
-  } catch (error) {
-    console.error('Backends error:', error);
-    return [];
-  }
-}
-
-// Get user jobs
-export async function getUserJobs(token: string): Promise<any> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/quantum/jobs`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to get user jobs');
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('User jobs error:', error);
-    return { success: true, jobs: [] };
-  }
-}
 
 // Cache management functions
 export async function getCacheStats(): Promise<any> {
@@ -248,13 +134,9 @@ export async function clearCache(): Promise<any> {
 }
 
 // Export quantumAPI object for backward compatibility
+// Export quantumAPI object for backward compatibility
 export const quantumAPI = {
   executeQuantumCircuit,
-  getJobStatus,
-  getJobResult,
-  validateToken,
-  getAvailableBackends,
-  getUserJobs,
   getCacheStats,
   clearCache
 };

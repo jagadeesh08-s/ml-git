@@ -71,7 +71,8 @@ export default {
 				'quantum-pulse': 'quantum-pulse 3s infinite',
 				'quantum-float': 'quantum-float 4s ease-in-out infinite',
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'pulse': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
 			},
 			keyframes: {
 				'quantum-spin': {
@@ -79,11 +80,11 @@ export default {
 					to: { transform: 'rotate(360deg)' }
 				},
 				'quantum-pulse': {
-					'0%, 100%': { 
+					'0%, 100%': {
 						boxShadow: '0 0 0 0 hsl(195 100% 50% / 0.4)',
 						transform: 'scale(1)'
 					},
-					'50%': { 
+					'50%': {
 						boxShadow: '0 0 0 20px hsl(195 100% 50% / 0)',
 						transform: 'scale(1.02)'
 					}
@@ -107,7 +108,19 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'pulse': {
+					'0%, 100%': { opacity: '1' },
+					'50%': { opacity: '0.7' }
 				}
+			},
+			backdropBlur: {
+				'xs': '2px',
+				'3xl': '64px',
+			},
+			transitionDelay: {
+				'500': '500ms',
+				'1000': '1000ms',
 			}
 		}
 	},
