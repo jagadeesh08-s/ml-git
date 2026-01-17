@@ -104,12 +104,23 @@ setup_security_middleware(app)
 # Enhanced CORS Configuration
 # ============================================================================
 # Use regex to allow any local/network origin while supporting credentials
+#app.add_middleware(
+   # CORSMiddleware,
+    #allow_origins=["*"],  # Allow all origins
+    #allow_credentials=False, # Credentials cannot be true with wildcards, and aren't used for JWT/cookies here
+    #allow_methods=["*"],
+    #allow_headers=["*"],
+#)
+origins = [
+    "http://localhost:8080",  # frontend
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
-    allow_credentials=False, # Credentials cannot be true with wildcards, and aren't used for JWT/cookies here
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=origins,      # or ["*"] for testing only
+    allow_credentials=True,
+    allow_methods=["*"],        # GET, POST, PUT, DELETE, OPTIONS
+    allow_headers=["*"],        # Authorization, Content-Type, etc
 )
 
 # ============================================================================
