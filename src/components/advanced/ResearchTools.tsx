@@ -21,10 +21,10 @@ import {
   TrendingUp,
   Activity,
   Cpu,
-  Globe
+  Earth
 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { QuantumCircuit, DensityMatrix } from '@/utils/quantumSimulation';
+import type { QuantumCircuit, DensityMatrix } from '@/utils/quantum/quantumSimulation';
 
 interface ResearchToolsProps {
   circuit: QuantumCircuit | null;

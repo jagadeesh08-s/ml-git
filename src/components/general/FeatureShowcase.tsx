@@ -11,7 +11,7 @@ import {
   TrendingUp,
   Microscope,
   Zap,
-  Globe,
+  Earth,
   Cpu,
   Sparkles,
   ArrowRight,
@@ -87,8 +87,8 @@ const FeatureShowcase: React.FC<FeatureShowcaseProps> = ({
   ];
 
   const capabilities = [
-    { icon: Zap, text: "High-Performance Local Simulator" },
-    { icon: Globe, text: "Real-time State Analysis" },
+    { icon: Zap, text: "IBM Quantum Hardware Integration" },
+    { icon: Earth, text: "Real-time State Analysis" },
     { icon: Cpu, text: "Browser-based Execution" },
     { icon: Sparkles, text: "Advanced Quantum Algorithms" }
   ];

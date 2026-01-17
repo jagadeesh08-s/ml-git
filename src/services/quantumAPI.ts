@@ -1,7 +1,7 @@
 // Quantum API service for communicating with the backend
 // Handles IBM Quantum integration and circuit execution
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || import.meta.env.REACT_APP_API_URL) || 'http://localhost:3006';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || import.meta.env.REACT_APP_API_URL) || 'http://localhost:3005';
 
 export interface QuantumExecutionOptions {
   backend: 'local' | 'aer_simulator' | 'wasm';
@@ -104,6 +104,87 @@ export async function executeQuantumCircuit(
 // Cache management functions (REMOVED JOB METHODS)
 
 
+// IBM Quantum Integration Functions
+export async function connectToIBM(token: string): Promise<any> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/ibm/connect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('IBM Quantum connection error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to connect to IBM Quantum service'
+    };
+  }
+}
+
+export async function getIBMBackends(token: string): Promise<any> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/ibm/backends?token=${token}`);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('IBM Quantum backends error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to get IBM Quantum backends'
+    };
+  }
+}
+
+export async function executeOnIBM(token: string, backend: string, circuit: any, shots: number = 1024): Promise<any> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/ibm/execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, backend, circuit, shots }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('IBM Quantum execution error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to execute on IBM Quantum'
+    };
+  }
+}
+
+export async function getIBMJobStatus(jobId: string, token: string): Promise<any> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/ibm/job/${jobId}?token=${token}`);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('IBM Quantum job status error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to get IBM Quantum job status'
+    };
+  }
+}
+
 // Cache management functions
 export async function getCacheStats(): Promise<any> {
   try {
@@ -134,9 +215,12 @@ export async function clearCache(): Promise<any> {
 }
 
 // Export quantumAPI object for backward compatibility
-// Export quantumAPI object for backward compatibility
 export const quantumAPI = {
   executeQuantumCircuit,
   getCacheStats,
-  clearCache
+  clearCache,
+  connectToIBM,
+  getIBMBackends,
+  executeOnIBM,
+  getIBMJobStatus
 };

@@ -3,9 +3,19 @@ Circuit Operations and Gate Application
 Converted from TypeScript quantum simulation utilities
 """
 
-import numpy as np
-from scipy.linalg import expm
-from typing import List, Dict, Any, Optional, Tuple, Union
+from typing import List, Dict, Any, Optional, Tuple, Union, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import numpy as np
+    from scipy.linalg import expm
+else:
+    try:
+        import numpy as np  # type: ignore
+        from scipy.linalg import expm  # type: ignore
+    except ImportError:
+        np = None  # type: ignore
+        expm = None  # type: ignore
+
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 
@@ -111,21 +121,34 @@ def create_initial_state(num_qubits: int) -> np.ndarray:
 
 
 def partial_trace(state: np.ndarray, qubit_index: int, num_qubits: int) -> np.ndarray:
-    """Compute partial trace over a qubit"""
+    """
+    Compute partial trace over a specific qubit using proper tensor operations.
+
+    For a density matrix ρ of n qubits, partial trace over qubit k gives
+    a reduced density matrix for the remaining n-1 qubits.
+    """
+    if num_qubits < 1:
+        raise ValueError("Must have at least 1 qubit")
+    if not (0 <= qubit_index < num_qubits):
+        raise ValueError(f"Qubit index {qubit_index} out of range for {num_qubits} qubits")
+
     dim = 2 ** num_qubits
-    traced_dim = 2 ** (num_qubits - 1)
-    traced_state = np.zeros((traced_dim, traced_dim), dtype=complex)
 
-    for i in range(traced_dim):
-        for j in range(traced_dim):
-            for k in range(2):
-                # Map indices considering the traced qubit
-                idx1 = i + k * (2 ** qubit_index) * traced_dim // 2
-                idx2 = j + k * (2 ** qubit_index) * traced_dim // 2
-                if idx1 < dim and idx2 < dim:
-                    traced_state[i, j] += state[idx1, idx2]
+    # Reshape density matrix into tensor form: (2, 2, ..., 2, 2, 2, ..., 2)
+    # First half: bra indices, second half: ket indices
+    tensor_shape = (2,) * (2 * num_qubits)
+    rho_tensor = state.reshape(tensor_shape)
 
-    return traced_state
+    # Determine which axes to trace over
+    # For qubit k, we trace over axis k (bra) and axis k+num_qubits (ket)
+    trace_axes = [qubit_index, qubit_index + num_qubits]
+
+    # Sum over the traced axes
+    reduced_tensor = np.sum(rho_tensor, axis=tuple(trace_axes))
+
+    # Reshape back to matrix form
+    reduced_dim = 2 ** (num_qubits - 1)
+    return reduced_tensor.reshape((reduced_dim, reduced_dim))
 
 
 def calculate_bloch_vector(density_matrix: np.ndarray) -> Dict[str, float]:

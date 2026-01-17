@@ -204,8 +204,8 @@ class QuantumWorker:
 
 class QuantumWorkerPool:
     """
-    Pool of quantum workers for concurrent task execution.
-    Manages multiple workers and distributes tasks among them.
+    Enhanced pool of quantum workers for concurrent task execution.
+    Manages multiple workers with improved task distribution, health monitoring, and metrics.
     """
 
     def __init__(self, num_workers: int = 4, use_processes: bool = False):
@@ -216,9 +216,17 @@ class QuantumWorkerPool:
         self._task_queue: asyncio.Queue = asyncio.Queue()
         self._running = False
         self._worker_tasks: List[asyncio.Task] = []
+        
+        # Enhanced metrics and health tracking
+        self._worker_metrics: Dict[int, Dict[str, Any]] = {}
+        self._worker_load: Dict[int, int] = {}  # Track active tasks per worker
+        self._total_tasks_completed = 0
+        self._total_tasks_failed = 0
+        self._worker_health: Dict[int, bool] = {}
+        self._current_worker_index = 0  # For round-robin distribution
 
     async def start(self):
-        """Start the worker pool"""
+        """Start the worker pool with health monitoring"""
         async with self._lock:
             if self._running:
                 return
@@ -230,11 +238,25 @@ class QuantumWorkerPool:
                 worker = QuantumWorker(use_processes=self.use_processes)
                 worker.start()
                 self.workers.append(worker)
+                
+                # Initialize metrics and health tracking
+                self._worker_metrics[i] = {
+                    "tasks_completed": 0,
+                    "tasks_failed": 0,
+                    "total_duration": 0.0,
+                    "last_task_time": None
+                }
+                self._worker_load[i] = 0
+                self._worker_health[i] = True
 
             # Start worker tasks
             for i, worker in enumerate(self.workers):
                 task = asyncio.create_task(self._worker_loop(worker, i))
                 self._worker_tasks.append(task)
+            
+            # Start health monitoring task
+            health_task = asyncio.create_task(self._health_monitor_loop())
+            self._worker_tasks.append(health_task)
 
     async def shutdown(self, wait: bool = True):
         """Shutdown the worker pool"""
@@ -259,42 +281,141 @@ class QuantumWorkerPool:
             self.workers.clear()
             self._worker_tasks.clear()
 
-    async def submit_task(self, message: WorkerMessage, progress_callback: Optional[Callable[[WorkerResponse], Awaitable[None]]] = None) -> asyncio.Future:
-        """Submit a task to the pool"""
+    def _select_worker(self) -> int:
+        """Select best worker using round-robin with load balancing"""
+        # Find worker with least load
+        min_load = min(self._worker_load.values()) if self._worker_load else 0
+        available_workers = [
+            i for i, load in self._worker_load.items()
+            if load == min_load and self._worker_health.get(i, True)
+        ]
+        
+        if not available_workers:
+            # Fallback to round-robin if all workers are unhealthy
+            available_workers = list(range(self.num_workers))
+        
+        # Round-robin selection
+        selected = available_workers[self._current_worker_index % len(available_workers)]
+        self._current_worker_index = (self._current_worker_index + 1) % len(available_workers)
+        return selected
+    
+    async def submit_task(self, message: WorkerMessage, progress_callback: Optional[Callable[[WorkerResponse], Awaitable[None]]] = None, priority: int = 0) -> asyncio.Future:
+        """Submit a task to the pool with optional priority"""
         if not self._running:
             raise RuntimeError("Worker pool is not running")
 
         future = asyncio.Future()
-        await self._task_queue.put((message, progress_callback, future))
+        # Priority queue would be better, but for now we use simple queue
+        await self._task_queue.put((message, progress_callback, future, priority))
         return future
+    
+    def get_pool_status(self) -> Dict[str, Any]:
+        """Get comprehensive pool status"""
+        return {
+            "running": self._running,
+            "num_workers": self.num_workers,
+            "active_workers": sum(1 for health in self._worker_health.values() if health),
+            "total_tasks_completed": self._total_tasks_completed,
+            "total_tasks_failed": self._total_tasks_failed,
+            "queue_size": self._task_queue.qsize(),
+            "worker_load": dict(self._worker_load),
+            "worker_health": dict(self._worker_health),
+            "worker_metrics": {
+                i: {
+                    "tasks_completed": metrics["tasks_completed"],
+                    "tasks_failed": metrics["tasks_failed"],
+                    "avg_duration": metrics["total_duration"] / max(metrics["tasks_completed"], 1),
+                    "current_load": self._worker_load.get(i, 0)
+                }
+                for i, metrics in self._worker_metrics.items()
+            }
+        }
 
     async def _worker_loop(self, worker: QuantumWorker, worker_id: int):
-        """Main loop for each worker"""
+        """Main loop for each worker with enhanced tracking"""
+        import time
         try:
             while self._running:
                 try:
                     # Get next task with timeout
-                    message, progress_callback, future = await asyncio.wait_for(
+                    task_data = await asyncio.wait_for(
                         self._task_queue.get(), timeout=1.0
                     )
+                    message, progress_callback, future, priority = task_data
                 except asyncio.TimeoutError:
                     continue
 
+                # Update worker load
+                self._worker_load[worker_id] = self._worker_load.get(worker_id, 0) + 1
+                task_start_time = time.time()
+                
                 try:
                     # Execute the task
                     result = await worker.execute(message, progress_callback)
+                    
+                    # Update metrics
+                    task_duration = time.time() - task_start_time
+                    self._worker_metrics[worker_id]["tasks_completed"] += 1
+                    self._worker_metrics[worker_id]["total_duration"] += task_duration
+                    self._worker_metrics[worker_id]["last_task_time"] = time.time()
+                    self._total_tasks_completed += 1
+                    self._worker_health[worker_id] = True
+                    
                     if not future.cancelled():
                         future.set_result(result)
                 except Exception as e:
+                    # Update failure metrics
+                    self._worker_metrics[worker_id]["tasks_failed"] += 1
+                    self._total_tasks_failed += 1
+                    
+                    # Mark worker as potentially unhealthy after multiple failures
+                    if self._worker_metrics[worker_id]["tasks_failed"] > 10:
+                        self._worker_health[worker_id] = False
+                    
                     if not future.cancelled():
                         future.set_exception(e)
                 finally:
+                    # Decrease worker load
+                    self._worker_load[worker_id] = max(0, self._worker_load.get(worker_id, 0) - 1)
                     self._task_queue.task_done()
 
         except asyncio.CancelledError:
             pass
         except Exception as e:
+            self._worker_health[worker_id] = False
             print(f"Worker {worker_id} error: {e}")
+    
+    async def _health_monitor_loop(self):
+        """Monitor worker health periodically"""
+        import time
+        while self._running:
+            try:
+                await asyncio.sleep(30)  # Check every 30 seconds
+                
+                current_time = time.time()
+                for worker_id, metrics in self._worker_metrics.items():
+                    # Check if worker is responsive
+                    last_task_time = metrics.get("last_task_time")
+                    if last_task_time and (current_time - last_task_time) > 300:  # 5 minutes
+                        # Worker hasn't processed a task in 5 minutes
+                        if self._worker_load.get(worker_id, 0) == 0:
+                            # Worker is idle but healthy
+                            self._worker_health[worker_id] = True
+                        else:
+                            # Worker has load but no recent activity - potentially stuck
+                            self._worker_health[worker_id] = False
+                    
+                    # Reset health if worker has recovered
+                    failure_rate = metrics["tasks_failed"] / max(
+                        metrics["tasks_completed"] + metrics["tasks_failed"], 1
+                    )
+                    if failure_rate < 0.1 and metrics["tasks_completed"] > 0:
+                        self._worker_health[worker_id] = True
+                        
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                print(f"Health monitor error: {e}")
 
 
 # Convenience functions for direct use

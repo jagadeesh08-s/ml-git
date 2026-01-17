@@ -15,6 +15,8 @@ import CircuitAnalysis from './CircuitAnalysis';
 import { simulateCircuit, computeGateOutputState } from '@/utils/quantum/quantumSimulation';
 import type { QuantumGate } from '@/utils/quantum/circuitOperations';
 import { toast } from 'sonner';
+import { useIBMQuantum } from '@/contexts/IBMQuantumContext';
+import { IBMQuantumConnection } from '../tools/IBMQuantumConnection';
 
 // Utility function to generate computational basis states for n qubits
 const generateComputationalBasisStates = (numQubits: number): Array<{ label: string; value: string; notation: 'bra-ket' }> => {
@@ -90,10 +92,27 @@ export const CircuitBuilder: React.FC<CircuitBuilderProps> = React.memo(({
   const defaultKetStates = Array(numQubits).fill('|0⟩');
   const [initialKetStates, setInitialKetStates] = useState<string[]>(defaultKetStates);
 
-  // Handle Run on IBM Quantum (REMOVED)
+  const { isAuthenticated, submitJob, isLoading: isIBMLoading } = useIBMQuantum();
+  const [isIBMDialogOpen, setIsIBMDialogOpen] = useState(false);
+
   const handleRunOnIBM = async () => {
-    toast.error('IBM Quantum integration is disabled in this version.');
+    if (!isAuthenticated) {
+      setIsIBMDialogOpen(true);
+      return;
+    }
+
+    const circuitData = {
+      numQubits,
+      gates: circuitGates.map(g => ({
+        name: g.gate.name,
+        qubits: g.qubits,
+        parameters: Object.values(g.gate.parameters || {})
+      }))
+    };
+
+    await submitJob(circuitData);
   };
+
 
   // Function to recompute all gate states based on circuit flow
   const recomputeGateStates = useCallback((gates: CircuitGate[]): CircuitGate[] => {
@@ -606,6 +625,21 @@ export const CircuitBuilder: React.FC<CircuitBuilderProps> = React.memo(({
                     <RotateCcw className="h-4 w-4 mr-1" />
                     Reset
                   </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleRunOnIBM}
+                    disabled={isIBMLoading || circuitGates.length === 0}
+                    className="h-8 px-3 bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-500/50 shadow-sm transition-all"
+                    title="Run on IBM Quantum Hardware"
+                  >
+                    {isIBMLoading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                    ) : (
+                      <Zap className="h-3.5 w-3.5 mr-1.5 fill-indigo-200" />
+                    )}
+                    Run on IBM
+                  </Button>
                 </div>
               </CardTitle>
             </CardHeader>
@@ -1007,6 +1041,11 @@ export const CircuitBuilder: React.FC<CircuitBuilderProps> = React.memo(({
             ketStates={initialKetStates}
           />
         </div>
+
+        <IBMQuantumConnection
+          isOpen={isIBMDialogOpen}
+          onClose={() => setIsIBMDialogOpen(false)}
+        />
       </div>
     </>
   );

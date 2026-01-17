@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/button';
 import ThemeToggle from '@/components/general/ThemeToggle';
 import CompactCache from '@/components/general/CompactCache';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIBMQuantum } from '@/contexts/IBMQuantumContext';
+import { IBMQuantumConnection } from '@/components/tools/IBMQuantumConnection';
+import { Cpu, Zap } from 'lucide-react';
 
 interface HeaderProps {
     // Add props if needed
@@ -14,6 +17,8 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = () => {
     const navigate = useNavigate();
     const { isAuthenticated } = useAuth();
+    const { isAuthenticated: isIBMConnected, currentJob } = useIBMQuantum();
+    const [isIBMModalOpen, setIsIBMModalOpen] = React.useState(false);
 
     return (
         <>
@@ -66,6 +71,30 @@ export const Header: React.FC<HeaderProps> = () => {
 
                         <div className="flex items-center gap-4">
 
+                            {/* IBM Quantum Status */}
+                            <div className="hidden lg:flex items-center gap-3">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setIsIBMModalOpen(true)}
+                                    className={`group relative overflow-hidden rounded-xl px-4 py-2 border transition-all duration-300 ${isIBMConnected
+                                        ? 'border-green-500/50 bg-green-500/10 hover:bg-green-500/20'
+                                        : 'border-muted/50 bg-muted/10 hover:bg-muted/20'
+                                        }`}
+                                >
+                                    <div className={`absolute inset-0 bg-gradient-to-r opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${isIBMConnected ? 'from-green-500/10 to-blue-500/10' : 'from-muted/10 to-muted/5'
+                                        }`} />
+                                    <div className="flex items-center gap-2">
+                                        <div className={`w-2 h-2 rounded-full ${isIBMConnected ? 'bg-green-500' : 'bg-muted-foreground'
+                                            } ${currentJob?.status === 'RUNNING' || currentJob?.status === 'QUEUED' ? 'animate-pulse' : ''}`} />
+                                        <span className={`text-sm font-medium ${isIBMConnected ? 'text-green-700 dark:text-green-300' : 'text-muted-foreground'
+                                            }`}>
+                                            {isIBMConnected ? 'IBM Quantum' : 'Connect IBM'}
+                                        </span>
+                                    </div>
+                                </Button>
+                            </div>
+
                             {/* Cache Manager */}
                             <CompactCache />
 
@@ -76,6 +105,11 @@ export const Header: React.FC<HeaderProps> = () => {
                     </div>
                 </div>
             </motion.header>
+
+            <IBMQuantumConnection
+                isOpen={isIBMModalOpen}
+                onClose={() => setIsIBMModalOpen(false)}
+            />
         </>
     );
 };

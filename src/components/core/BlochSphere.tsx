@@ -158,8 +158,8 @@ const BlochSphere3D: React.FC<BlochSphereProps> = ({
 
           {showAxes && <CoordinateAxes highlightedAxis={highlightedAxis} />}
 
-          {/* Probability Chart Overlay - Now inside Canvas */}
-          <Html position={[-1.2, 1.2, 0]} transform={false} style={{ pointerEvents: 'none' }} zIndexRange={[100, 0]}>
+          {/* Probability Chart Overlay - Commented out to avoid WebGL issues */}
+          {/* <Html position={[-1.2, 1.2, 0]} transform={false} style={{ pointerEvents: 'none' }} zIndexRange={[100, 0]}>
             <div className={`w-28 bg-black/60 backdrop-blur-md rounded-lg p-2 border border-cyan-500/20 text-[10px] font-mono shadow-lg select-none transition-opacity duration-300 ${hovered ? 'opacity-100' : 'opacity-70'} pointer-events-auto origin-top-left -translate-x-1/2 -translate-y-1/2 scale-90`}>
               <h3 className="text-cyan-400 mb-1.5 font-bold flex items-center justify-between text-[9px]">
                 <span>Probabilities</span>
@@ -191,7 +191,7 @@ const BlochSphere3D: React.FC<BlochSphereProps> = ({
                 </div>
               </div>
             </div>
-          </Html>
+          </Html> */}
 
           {/* --- SPHERE AESTHETICS (Glassy look) --- */}
           <group>
@@ -209,15 +209,10 @@ const BlochSphere3D: React.FC<BlochSphereProps> = ({
             {/* Glass Surface - inner glow */}
             <mesh>
               <sphereGeometry args={[0.99, 64, 64]} />
-              <meshPhysicalMaterial
+              <meshBasicMaterial
                 color="#ffffff"
-                transmission={0.9} // Glass
-                opacity={0.3}
                 transparent
-                roughness={0.1}
-                metalness={0.1}
-                clearcoat={1}
-                thickness={1}
+                opacity={0.1}
               />
             </mesh>
 

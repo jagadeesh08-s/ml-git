@@ -14,7 +14,7 @@ import {
   BarChart3,
   Activity,
   Cpu,
-  Globe,
+  Earth,
   Download,
   RefreshCw,
   Award,

@@ -107,7 +107,7 @@ const Landing = () => {
                     <FeatureCard
                         icon={<Activity className="w-8 h-8 text-green-400" />}
                         title="Live Simulation"
-                        description="Run high-fidelity quantum simulations directly in your browser with zero latency."
+                        description="Run simulations locally or connect to IBM Quantum hardware for real-world execution."
                     />
                     <FeatureCard
                         icon={<Layers className="w-8 h-8 text-yellow-400" />}

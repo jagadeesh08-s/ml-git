@@ -1,10 +1,16 @@
-import numpy as np
-from typing import List, Tuple
-from complex import Complex
+from typing import List, Tuple, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import numpy as np
+else:
+    try:
+        import numpy as np  # type: ignore
+    except ImportError:
+        np = None  # type: ignore
 
 class StateVector:
     """
-    Quantum state vector implementation using numpy arrays
+    Quantum state vector implementation using numpy complex arrays
     """
     def __init__(self, size: int):
         self.amplitudes = np.zeros(size, dtype=np.complex128)
@@ -30,17 +36,15 @@ class StateVector:
     def num_qubits(self) -> int:
         return int(np.log2(self.size))
 
-    def get(self, index: int) -> Complex:
+    def get(self, index: int) -> complex:
         if index < 0 or index >= self.size:
             raise IndexError(f'Index {index} out of bounds for state vector of size {self.size}')
-        c = Complex()
-        c.value = self.amplitudes[index]
-        return c
+        return complex(self.amplitudes[index])
 
-    def set(self, index: int, value: Complex):
+    def set(self, index: int, value: complex):
         if index < 0 or index >= self.size:
             raise IndexError(f'Index {index} out of bounds for state vector of size {self.size}')
-        self.amplitudes[index] = value.value
+        self.amplitudes[index] = complex(value)
 
     def initialize_to_basis(self, n: int):
         """Initialize to computational basis state |n⟩"""
@@ -54,16 +58,16 @@ class StateVector:
         amplitude = 1 / np.sqrt(self.size)
         self.amplitudes.fill(amplitude + 0j)
 
-    def initialize_first_qubit(self, alpha: Complex, beta: Complex):
+    def initialize_first_qubit(self, alpha: complex, beta: complex):
         """Initialize to custom state for first qubit"""
         if self.num_qubits < 1:
             return
 
         # Normalize the state
-        norm = np.sqrt(alpha.magnitude_squared() + beta.magnitude_squared())
+        norm = np.sqrt(abs(alpha)**2 + abs(beta)**2)
         if norm > 0:
-            alpha_val = alpha.value / norm
-            beta_val = beta.value / norm
+            alpha_val = alpha / norm
+            beta_val = beta / norm
         else:
             alpha_val = 1+0j
             beta_val = 0+0j

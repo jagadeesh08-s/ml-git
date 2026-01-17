@@ -1,5 +1,12 @@
-import numpy as np
-from typing import List
+from typing import List, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import numpy as np
+else:
+    try:
+        import numpy as np  # type: ignore
+    except ImportError:
+        np = None  # type: ignore
 from complex import Complex
 
 class QuantumGates:
@@ -97,6 +104,41 @@ class QuantumGates:
         ], dtype=np.complex128)
 
     @staticmethod
+    def crx(theta: float) -> np.ndarray:
+        """Controlled rotation around X axis"""
+        cos = np.cos(theta/2)
+        sin = np.sin(theta/2)
+        return np.array([
+            [1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, cos, -1j*sin],
+            [0, 0, -1j*sin, cos]
+        ], dtype=np.complex128)
+
+    @staticmethod
+    def cry(theta: float) -> np.ndarray:
+        """Controlled rotation around Y axis"""
+        cos = np.cos(theta/2)
+        sin = np.sin(theta/2)
+        return np.array([
+            [1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, cos, -sin],
+            [0, 0, sin, cos]
+        ], dtype=np.complex128)
+
+    @staticmethod
+    def crz(theta: float) -> np.ndarray:
+        """Controlled rotation around Z axis"""
+        phase = theta / 2
+        return np.array([
+            [1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, np.cos(-phase)+1j*np.sin(-phase), 0],
+            [0, 0, 0, np.cos(phase)+1j*np.sin(phase)]
+        ], dtype=np.complex128)
+
+    @staticmethod
     def get_gate(name: str, parameters: List[float] = None) -> np.ndarray:
         """
         Get gate matrix by name
@@ -131,6 +173,12 @@ class QuantumGates:
             return QuantumGates.CZ.copy()
         elif name == 'SWAP':
             return QuantumGates.SWAP.copy()
+        elif name == 'CRX':
+            return QuantumGates.crx(parameters[0] if parameters else np.pi/2)
+        elif name == 'CRY':
+            return QuantumGates.cry(parameters[0] if parameters else np.pi/2)
+        elif name == 'CRZ':
+            return QuantumGates.crz(parameters[0] if parameters else np.pi/2)
         else:
             raise ValueError(f"Unknown gate: {name}")
 
@@ -143,7 +191,7 @@ class QuantumGates:
     @staticmethod
     def is_two_qubit_gate(name: str) -> bool:
         """Check if gate is two-qubit"""
-        two_qubit_gates = ['CNOT', 'CX', 'CZ', 'SWAP']
+        two_qubit_gates = ['CNOT', 'CX', 'CZ', 'SWAP', 'CRX', 'CRY', 'CRZ']
         return name.upper() in two_qubit_gates
 
     @staticmethod

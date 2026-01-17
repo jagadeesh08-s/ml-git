@@ -493,20 +493,32 @@ export const suggestFixes = (code: string): CodeSuggestion[] => {
   return suggestions;
 };
 
-// IBM Quantum integration removed
-export const executeOnIBMQuantum = async () => {
-  throw new Error('IBM Quantum integration currently disabled');
+export const executeOnIBMQuantum = async (circuit: QuantumCircuit, token: string, backend: string, shots: number = 1024) => {
+  try {
+    const result = await quantumAPI.executeOnIBM(token, backend, circuit, shots);
+    return result;
+  } catch (error) {
+    console.error('IBM Quantum execution error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to execute on IBM Quantum'
+    };
+  }
 };
 
-export const monitorIBMJob = async () => {
-  throw new Error('IBM Quantum integration currently disabled');
+import { quantumAPI } from '@/services/quantumAPI';
+
+export const monitorIBMJob = async (jobId: string, token: string) => {
+  return quantumAPI.getIBMJobStatus(jobId, token);
 };
 
-export const getIBMBackends = async () => {
-  return [];
+export const getIBMBackends = async (token: string) => {
+  const result = await quantumAPI.getIBMBackends(token);
+  return result.backends || [];
 };
 
-export const validateIBMToken = async () => {
-  return { valid: false, error: 'IBM integration disabled' };
+export const validateIBMToken = async (token: string) => {
+  const result = await quantumAPI.connectToIBM(token);
+  return { valid: result.success, error: result.error };
 };
 

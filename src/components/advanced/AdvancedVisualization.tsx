@@ -17,7 +17,7 @@ import {
   Cpu,
   Waves,
   TrendingUp,
-  Globe,
+  Earth,
   Eye,
   BarChart3,
   MonitorSpeaker
@@ -78,7 +78,10 @@ const AdvancedVisualization: React.FC<AdvancedVisualizationProps> = React.memo((
   const calculateProbabilities = (densityMatrices: DensityMatrix[]): number[][] => {
     return densityMatrices.map(dm => {
       // Extract diagonal elements (probabilities)
-      return [dm.matrix[0][0], dm.matrix[1][1]].map(p => Math.max(0, Math.min(1, p)));
+      return [dm.matrix[0][0], dm.matrix[1][1]].map(p => {
+        const realPart = typeof p === 'object' && p !== null && 'real' in p ? (p as any).real : Number(p);
+        return Math.max(0, Math.min(1, realPart));
+      });
     });
   };
 
@@ -206,8 +209,6 @@ const AdvancedVisualization: React.FC<AdvancedVisualizationProps> = React.memo((
                 showAxes={true}
                 showGrid={true}
                 interactive={true}
-                enableGPU={vizState.enableGPU}
-                onPerformanceUpdate={handlePerformanceUpdate}
               />
             </div>
 

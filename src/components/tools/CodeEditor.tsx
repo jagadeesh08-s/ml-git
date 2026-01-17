@@ -23,7 +23,8 @@ import {
   Code2,
   CircuitBoard,
   Loader2,
-  Upload
+  Upload,
+  Earth
 } from 'lucide-react';
 import { toast } from 'sonner';
 import beautify from 'js-beautify';
@@ -38,11 +39,14 @@ import {
   parseQuantumCode,
   validateQuantumCode,
   suggestFixes,
+  executeOnIBMQuantum,
   type QuantumCircuit,
   type DensityMatrix,
   type CodeError,
   type CodeSuggestion
 } from '@/utils/quantum/quantumCodeParser';
+
+import { useIBMQuantum } from '@/contexts/IBMQuantumContext';
 
 interface CodeEditorProps {
   onCircuitChange?: (circuit: QuantumCircuit) => void;
@@ -57,6 +61,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   initialCode = '',
   layoutMode = 'full'
 }) => {
+  const { isAuthenticated: isIBMConnected, submitJob, currentJob } = useIBMQuantum();
   const [code, setCode] = useState(initialCode);
   const [circuit, setCircuit] = useState<QuantumCircuit | null>(null);
   const [results, setResults] = useState<DensityMatrix[]>([]);
@@ -562,7 +567,7 @@ qc.measure_all()
     }
   }, [onCircuitChange, onResultsChange]);
 
-  // Execute quantum code (uses REST fallback)
+  // Execute quantum code locally (uses REST fallback)
   const handleExecute = async () => {
     setIsExecuting(true);
     try {
@@ -572,6 +577,37 @@ qc.measure_all()
       toast.error('Execution failed');
     } finally {
       setIsExecuting(false);
+    }
+  };
+
+  // Execute on IBM Quantum
+  const handleExecuteOnIBM = async () => {
+    if (!circuit) {
+      toast.error('No circuit to execute');
+      return;
+    }
+
+    if (!isIBMConnected) {
+      toast.error('Please connect to IBM Quantum first');
+      return;
+    }
+
+    try {
+      // Prepare circuit for IBM submission
+      const circuitData = {
+        numQubits: circuit.numQubits,
+        gates: circuit.gates.map(gate => ({
+          name: gate.name,
+          qubits: gate.qubits,
+          parameters: Object.values(gate.parameters || {})
+        }))
+      };
+
+      await submitJob(circuitData);
+      toast.success('Job submitted to IBM Quantum');
+    } catch (error) {
+      console.error('IBM Submission Error:', error);
+      toast.error('Failed to submit job to IBM Quantum');
     }
   };
 
@@ -1120,7 +1156,7 @@ qc.measure_all()
             </Button>
 
             <div className="mt-4 space-y-3">
-              {/* Row 1: Execute + Step-by-Step */}
+              {/* Row 1: Execute + Execute on IBM + Step-by-Step */}
               <div className="flex flex-wrap items-center gap-3">
                 <Button
                   onClick={handleExecute}
@@ -1131,8 +1167,32 @@ qc.measure_all()
                   className="h-9 px-3 bg-gradient-sphere text-primary-foreground shadow hover:brightness-110 active:brightness-95"
                 >
                   {isExecuting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
-                  Execute Circuit
+                  Execute Circuit (Local)
                 </Button>
+
+                {isIBMConnected && (
+                  <Button
+                    variant="outline"
+                    onClick={handleExecuteOnIBM}
+                    disabled={!circuit || currentJob?.status === 'running' || currentJob?.status === 'queued'}
+                    aria-label="Execute on IBM Quantum"
+                    data-testid="btn-execute-ibm"
+                    title="Submit job to IBM Quantum"
+                    className="h-9 px-3 bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 border-purple-500/30"
+                  >
+                    {currentJob?.status === 'running' || currentJob?.status === 'queued' ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        {currentJob?.status === 'running' ? 'Running...' : 'Queued...'}
+                      </>
+                    ) : (
+                      <>
+                        <Earth className="w-4 h-4 mr-2" />
+                        Execute on IBM
+                      </>
+                    )}
+                  </Button>
+                )}
 
                 <Button
                   variant="outline"

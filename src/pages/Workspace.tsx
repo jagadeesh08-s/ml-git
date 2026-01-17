@@ -16,7 +16,7 @@ import {
   Code,
   Palette,
   Zap,
-  Globe,
+  Earth,
   Cpu,
   CheckCircle,
   AlertCircle,
@@ -65,7 +65,8 @@ import { LoginModal } from '@/components/auth/LoginModal';
 import { RegisterModal } from '@/components/auth/RegisterModal';
 import { UserMenu } from '@/components/auth/UserMenu';
 import { useAuth } from '@/contexts/AuthContext';
-import { LoginModal } from '@/components/auth/LoginModal';
+import { useIBMQuantum } from '@/contexts/IBMQuantumContext';
+import { IBMQuantumConnection } from '@/components/tools/IBMQuantumConnection';
 
 import { VQEPlayground } from '@/components/advanced/VQEPlayground';
 
@@ -143,6 +144,11 @@ const Workspace: React.FC = () => {
 
   // Bloch Sphere Modal state
   const [isBlochModalOpen, setIsBlochModalOpen] = useState(false);
+
+  // IBM Quantum state
+  const { isAuthenticated: isIBMConnected, submitJob, currentJob } = useIBMQuantum();
+  const [isIBMConnectionModalOpen, setIsIBMConnectionModalOpen] = useState(false);
+
 
   const nearlyEqual = (a: number, b: number, tol = 1e-2) => Math.abs(a - b) <= tol;
   const rounded = (v: { x: any; y: any; z: any }) => ({
@@ -402,6 +408,35 @@ qc = QuantumCircuit(${circuit.numQubits})
 
   const [ibmSimulationResult, setIbmSimulationResult] = useState<any>(null);
 
+  const handleIbmSimulation = async () => {
+    if (!currentCircuit) {
+      toast.error('Please create or load a circuit first');
+      return;
+    }
+
+    if (!isIBMConnected) {
+      setIsIBMConnectionModalOpen(true);
+      return;
+    }
+
+    try {
+      // Prepare circuit for IBM submission
+      const circuitData = {
+        numQubits: currentCircuit.numQubits,
+        gates: currentCircuit.gates.map(gate => ({
+          name: gate.name,
+          qubits: gate.qubits,
+          parameters: Object.values(gate.parameters || {})
+        }))
+      };
+
+      await submitJob(circuitData);
+    } catch (error) {
+      console.error('IBM Submission Error:', error);
+      toast.error('Failed to submit job to IBM Quantum');
+    }
+  };
+
   const handleLocalSimulation = async () => {
     if (!currentCircuit) return;
 
@@ -473,9 +508,7 @@ qc = QuantumCircuit(${circuit.numQubits})
     }
   };
 
-  const handleIbmSimulation = async () => {
-    toast.error('IBM Quantum integration is disabled in this version.');
-  };
+
 
   const handleReset = () => {
     setSimulationResult(null);
@@ -1000,7 +1033,7 @@ qc = QuantumCircuit(${circuit.numQubits})
                                             onClick={() => setIsBlochModalOpen(true)}
                                             className="bg-cyan-500/20 border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/30 hover:border-cyan-400"
                                           >
-                                            <Globe className="w-4 h-4 mr-2" />
+                                            <Earth className="w-4 h-4 mr-2" />
                                             View All
                                           </Button>
                                         </div>
@@ -1351,6 +1384,12 @@ qc = QuantumCircuit(${circuit.numQubits})
                 setIsLoginModalOpen(true);
               }}
             />
+
+            <IBMQuantumConnection
+              isOpen={isIBMConnectionModalOpen}
+              onClose={() => setIsIBMConnectionModalOpen(false)}
+            />
+
 
 
 

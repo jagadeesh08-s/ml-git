@@ -1,0 +1,28 @@
+{
+  "include": [
+    "."
+  ],
+  "exclude": [
+    "**/__pycache__",
+    "**/node_modules",
+    "**/.venv",
+    "**/venv"
+  ],
+  "reportMissingImports": "warning",
+  "reportMissingTypeStubs": "none",
+  "pythonVersion": "3.10",
+  "typeCheckingMode": "basic",
+  "ignore": [
+    "redis",
+    "dependency_injector",
+    "structlog",
+    "prometheus_client",
+    "qiskit",
+    "qiskit_aer",
+    "qiskit_ibm_runtime",
+    "aiohttp",
+    "kagglehub",
+    "numpy",
+    "scipy"
+  ]
+}
