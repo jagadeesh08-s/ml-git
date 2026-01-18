@@ -16,22 +16,44 @@ from config import config
 from container import container
 from cache import quantum_cache
 from monitoring import (
-    metrics_collector, metrics_middleware, get_metrics, get_health,
-    REQUEST_COUNT, SIMULATION_DURATION, ACTIVE_WORKERS
+    metrics_collector,
+    metrics_middleware,
+    get_metrics,
+    get_health,
+    REQUEST_COUNT,
+    SIMULATION_DURATION,
+    ACTIVE_WORKERS,
 )
 from rate_limiting import (
-    limiter, quantum_rate_limit_middleware, rate_limit_exceeded_handler,
-    limit_general_requests, limit_ibm_requests, limit_simulation_requests
+    limiter,
+    quantum_rate_limit_middleware,
+    rate_limit_exceeded_handler,
+    limit_general_requests,
+    limit_ibm_requests,
+    limit_simulation_requests,
 )
 from models import (
-    QuantumExecutionRequest, QuantumExecutionResult, IBMConnectRequest,
-    IBMConnectResponse, IBMBackendsResponse, IBMExecuteRequest,
-    IBMExecuteResponse, IBMJobStatusResponse, AIQuestionRequest,
-    AIQuestionResponse, CacheStatsResponse, HealthResponse,
-    QuantumMLFeatureMapRequest, QuantumMLKernelRequest,
-    QuantumMLVQCTrainRequest, QuantumMLVQCPredictRequest,
-    DatasetGenerateRequest, DatasetGenerateResponse,
-    MedicalLoadRequest, MedicalAnalyzeRequest, ErrorResponse
+    QuantumExecutionRequest,
+    QuantumExecutionResult,
+    IBMConnectRequest,
+    IBMConnectResponse,
+    IBMBackendsResponse,
+    IBMExecuteRequest,
+    IBMExecuteResponse,
+    IBMJobStatusResponse,
+    AIQuestionRequest,
+    AIQuestionResponse,
+    CacheStatsResponse,
+    HealthResponse,
+    QuantumMLFeatureMapRequest,
+    QuantumMLKernelRequest,
+    QuantumMLVQCTrainRequest,
+    QuantumMLVQCPredictRequest,
+    DatasetGenerateRequest,
+    DatasetGenerateResponse,
+    MedicalLoadRequest,
+    MedicalAnalyzeRequest,
+    ErrorResponse,
 )
 
 # Import legacy modules (keeping for compatibility)
@@ -40,27 +62,48 @@ from quantum_api_types import BackendType, QuantumExecutionOptions
 from quantum_api_bridge import QuantumAPI, execute_quantum_circuit_sync
 from quantum_knowledge_base import ask_ai_question
 from quantum_worker import QuantumWorker, QuantumWorkerPool, simulate_circuit_async
-from ts_sim_port import Circuit as TsCircuit, Gate as TsGate, simulate_circuit as simulate_circuit_ts
+from ts_sim_port import (
+    Circuit as TsCircuit,
+    Gate as TsGate,
+    simulate_circuit as simulate_circuit_ts,
+)
 from quantum_ml_primitives import (
-    FeatureMap, ZFeatureMap, ZZFeatureMap, AmplitudeEncoding,
-    QuantumKernel, FidelityQuantumKernel, ProjectedQuantumKernel,
-    QNNLayer, VariationalLayer, DataEncodingLayer, MeasurementLayer,
-    VariationalQuantumClassifier, VQCConfig,
-    generate_classification_dataset, generate_regression_dataset,
-    evaluate_classification, evaluate_regression,
-    serialize_model, deserialize_model
+    FeatureMap,
+    ZFeatureMap,
+    ZZFeatureMap,
+    AmplitudeEncoding,
+    QuantumKernel,
+    FidelityQuantumKernel,
+    ProjectedQuantumKernel,
+    QNNLayer,
+    VariationalLayer,
+    DataEncodingLayer,
+    MeasurementLayer,
+    VariationalQuantumClassifier,
+    VQCConfig,
+    generate_classification_dataset,
+    generate_regression_dataset,
+    evaluate_classification,
+    evaluate_regression,
+    serialize_model,
+    deserialize_model,
 )
 from quantum_data_preprocessing import (
-    QuantumDataPreprocessor, DataSample,
-    standardize_features, normalize_features, encode_for_quantum,
-    reduce_dimensionality, create_train_validation_split,
-    analyze_quantum_readiness
+    QuantumDataPreprocessor,
+    DataSample,
+    standardize_features,
+    normalize_features,
+    encode_for_quantum,
+    reduce_dimensionality,
+    create_train_validation_split,
+    analyze_quantum_readiness,
 )
 import kagglehub
 from medical_core import medical_core, download_csv_from_drive
 
 # Load environment variables
 from dotenv import load_dotenv
+
 load_dotenv()
 
 # IBM Quantum service
@@ -72,11 +115,16 @@ app = FastAPI(
     version="2.0.0",
     description="Enhanced Quantum Computing Backend with Advanced Features",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
 )
 
 # Import API versioning
-from api_versioning import version_middleware, versioned_router, create_versioned_router, APIVersion
+from api_versioning import (
+    version_middleware,
+    versioned_router,
+    create_versioned_router,
+    APIVersion,
+)
 from routers import v1, v2
 
 # Register versioned routers
@@ -87,13 +135,16 @@ versioned_router.register_version("v2", v2.v2_router, deprecated=False)
 app.include_router(v1.v1_router)
 app.include_router(v2.v2_router)
 
+
 # Add versioning middleware
 @app.middleware("http")
 async def api_version_middleware(request: Request, call_next):
     return await version_middleware(request, call_next)
 
+
 # Setup security middleware
 from security import setup_security_middleware
+
 setup_security_middleware(app)
 
 # Analytics router removed
@@ -104,23 +155,23 @@ setup_security_middleware(app)
 # Enhanced CORS Configuration
 # ============================================================================
 # Use regex to allow any local/network origin while supporting credentials
-#app.add_middleware(
-   # CORSMiddleware,
-    #allow_origins=["*"],  # Allow all origins
-    #allow_credentials=False, # Credentials cannot be true with wildcards, and aren't used for JWT/cookies here
-    #allow_methods=["*"],
-    #allow_headers=["*"],
-#)
+# app.add_middleware(
+# CORSMiddleware,
+# allow_origins=["*"],  # Allow all origins
+# allow_credentials=False, # Credentials cannot be true with wildcards, and aren't used for JWT/cookies here
+# allow_methods=["*"],
+# allow_headers=["*"],
+# )
 origins = [
     "http://localhost:8080",  # frontend
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,      # or ["*"] for testing only
+    allow_origins=origins,  # or ["*"] for testing only
     allow_credentials=True,
-    allow_methods=["*"],        # GET, POST, PUT, DELETE, OPTIONS
-    allow_headers=["*"],        # Authorization, Content-Type, etc
+    allow_methods=["*"],  # GET, POST, PUT, DELETE, OPTIONS
+    allow_headers=["*"],  # Authorization, Content-Type, etc
 )
 
 # ============================================================================
@@ -128,20 +179,20 @@ app.add_middleware(
 # ============================================================================
 
 # Rate limiting middleware
-app.add_middleware(
-    limiter,
-    error_handler=rate_limit_exceeded_handler
-)
+app.add_middleware(limiter, error_handler=rate_limit_exceeded_handler)
+
 
 # Custom quantum rate limiting
 @app.middleware("http")
 async def enhanced_rate_limiting_middleware(request: Request, call_next):
     return await quantum_rate_limit_middleware(request, call_next)
 
+
 # Metrics collection middleware
 @app.middleware("http")
 async def enhanced_metrics_middleware(request: Request, call_next):
     return await metrics_middleware(request, call_next)
+
 
 # Security
 security = HTTPBearer(auto_error=False)
@@ -150,15 +201,18 @@ security = HTTPBearer(auto_error=False)
 # Enhanced Health and Monitoring Endpoints
 # ============================================================================
 
+
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Enhanced health check with dependency verification"""
     return await get_health()
 
+
 @app.get("/metrics")
 async def prometheus_metrics():
     """Prometheus metrics endpoint"""
     return await get_metrics()
+
 
 # Cache management endpoints
 @app.get("/api/cache/stats", response_model=CacheStatsResponse)
@@ -167,19 +221,19 @@ async def get_cache_stats():
     stats = await quantum_cache.get_stats()
     return CacheStatsResponse(success=True, cache=stats)
 
+
 @app.delete("/api/cache/clear")
 async def clear_cache():
     """Clear all cached data"""
     await quantum_cache.clear_all()
     container.logger.info("cache_cleared", source="api")
-    return {
-        "success": True,
-        "message": "All caches cleared successfully"
-    }
+    return {"success": True, "message": "All caches cleared successfully"}
+
 
 # ============================================================================
 # Enhanced IBM Quantum Endpoints
 # ============================================================================
+
 
 @app.post("/api/ibm/connect", response_model=IBMConnectResponse)
 @limit_ibm_requests()
@@ -188,26 +242,39 @@ async def connect_ibm(request: IBMConnectRequest):
     start_time = time.time()
 
     try:
-        container.logger.info("ibm_connection_attempt", token_prefix=request.token[:10] if request.token else "none")
-        
+        container.logger.info(
+            "ibm_connection_attempt",
+            token_prefix=request.token[:10] if request.token else "none",
+        )
+
         # Print to console for debugging
-        print(f"[IBM] 🔐 Connecting with token: {request.token[:10]}..." if request.token else "[IBM] ❌ No token provided")
+        print(
+            f"[IBM] 🔐 Connecting with token: {request.token[:10]}..."
+            if request.token
+            else "[IBM] ❌ No token provided"
+        )
         print(f"[IBM] 📡 Validating token with IBM Quantum...")
 
         result = await ibm_service_instance.validate_token(request.token)
 
         duration = time.time() - start_time
-        await metrics_collector.record_ibm_api_call("connect", result.get("success", False))
+        await metrics_collector.record_ibm_api_call(
+            "connect", result.get("success", False)
+        )
 
         if result.get("success"):
             hub = result.get("hub", "unknown")
             channel = result.get("channel", "unknown")
             print(f"[IBM] ✅ Connection successful! Hub: {hub}, Channel: {channel}")
-            container.logger.info("ibm_connection_success", hub=hub, channel=channel, duration=duration)
+            container.logger.info(
+                "ibm_connection_success", hub=hub, channel=channel, duration=duration
+            )
         else:
             error = result.get("error", "Unknown error")
             print(f"[IBM] ❌ Connection failed: {error}")
-            container.logger.warning("ibm_connection_failed", error=error, duration=duration)
+            container.logger.warning(
+                "ibm_connection_failed", error=error, duration=duration
+            )
 
         return IBMConnectResponse(**result)
 
@@ -216,8 +283,13 @@ async def connect_ibm(request: IBMConnectRequest):
         await metrics_collector.record_ibm_api_call("connect", False)
         error_msg = str(e)
         print(f"[IBM] ❌ Connection error: {error_msg}")
-        container.logger.error("ibm_connection_error", error=error_msg, duration=duration)
-        raise IBMQuantumError(f"IBM Quantum connection failed: {error_msg}", details={"duration": duration})
+        container.logger.error(
+            "ibm_connection_error", error=error_msg, duration=duration
+        )
+        raise IBMQuantumError(
+            f"IBM Quantum connection failed: {error_msg}",
+            details={"duration": duration},
+        )
 
 
 @app.get("/api/ibm/backends", response_model=IBMBackendsResponse)
@@ -226,7 +298,7 @@ async def get_ibm_backends(request: Request, token: str):
     """Get available IBM Quantum backends with caching and logging"""
     try:
         print(f"[IBM] 🔍 Fetching backends for token: {token[:10]}...")
-        
+
         # Check cache first
         cache_key = f"ibm_backends:{token[:16]}"
         cached_result = await quantum_cache.backend.get(cache_key)
@@ -234,7 +306,9 @@ async def get_ibm_backends(request: Request, token: str):
         if cached_result:
             await metrics_collector.record_cache_hit("ibm_backends")
             container.logger.debug("ibm_backends_cache_hit")
-            print(f"[IBM] ✅ Backends retrieved from cache ({len(cached_result.get('backends', []))} backends)")
+            print(
+                f"[IBM] ✅ Backends retrieved from cache ({len(cached_result.get('backends', []))} backends)"
+            )
             return IBMBackendsResponse(**cached_result)
 
         await metrics_collector.record_cache_miss("ibm_backends")
@@ -247,7 +321,9 @@ async def get_ibm_backends(request: Request, token: str):
             print(f"[IBM] ✅ Found {backend_count} backends")
             await quantum_cache.backend.set(cache_key, result, ttl=300)
         else:
-            print(f"[IBM] ❌ Failed to get backends: {result.get('error', 'Unknown error')}")
+            print(
+                f"[IBM] ❌ Failed to get backends: {result.get('error', 'Unknown error')}"
+            )
 
         return IBMBackendsResponse(**result)
 
@@ -266,22 +342,25 @@ async def execute_ibm(request: IBMExecuteRequest):
 
     try:
         print(f"[IBM] 🚀 Submitting job to backend: {request.backend}")
-        print(f"[IBM] 📊 Circuit: {request.circuit.numQubits} qubits, {len(request.circuit.gates)} gates, {request.shots} shots")
-        
-        container.logger.info("ibm_execution_started",
-                            backend=request.backend,
-                            shots=request.shots,
-                            circuit_size=len(request.circuit.gates))
+        print(
+            f"[IBM] 📊 Circuit: {request.circuit.numQubits} qubits, {len(request.circuit.gates)} gates, {request.shots} shots"
+        )
+
+        container.logger.info(
+            "ibm_execution_started",
+            backend=request.backend,
+            shots=request.shots,
+            circuit_size=len(request.circuit.gates),
+        )
 
         result = await ibm_service_instance.submit_job(
-            request.token,
-            request.backend,
-            request.circuit.dict(),
-            request.shots
+            request.token, request.backend, request.circuit.dict(), request.shots
         )
 
         duration = time.time() - start_time
-        await metrics_collector.record_ibm_api_call("execute", result.get("success", False))
+        await metrics_collector.record_ibm_api_call(
+            "execute", result.get("success", False)
+        )
 
         if result.get("success"):
             job_id = result.get("jobId")
@@ -289,16 +368,13 @@ async def execute_ibm(request: IBMExecuteRequest):
             print(f"[IBM] ✅ Job submitted successfully!")
             print(f"[IBM] 📋 Job ID: {job_id}")
             print(f"[IBM] 📊 Status: {status}")
-            container.logger.info("ibm_job_submitted",
-                                job_id=job_id,
-                                status=status,
-                                duration=duration)
+            container.logger.info(
+                "ibm_job_submitted", job_id=job_id, status=status, duration=duration
+            )
         else:
             error = result.get("error", "Unknown error")
             print(f"[IBM] ❌ Job submission failed: {error}")
-            container.logger.warning("ibm_job_failed",
-                                   error=error,
-                                   duration=duration)
+            container.logger.warning("ibm_job_failed", error=error, duration=duration)
 
         return IBMExecuteResponse(**result)
 
@@ -307,8 +383,12 @@ async def execute_ibm(request: IBMExecuteRequest):
         await metrics_collector.record_ibm_api_call("execute", False)
         error_msg = str(e)
         print(f"[IBM] ❌ Execution error: {error_msg}")
-        container.logger.error("ibm_execution_error", error=error_msg, duration=duration)
-        raise IBMQuantumError(f"IBM Quantum execution failed: {error_msg}", details={"duration": duration})
+        container.logger.error(
+            "ibm_execution_error", error=error_msg, duration=duration
+        )
+        raise IBMQuantumError(
+            f"IBM Quantum execution failed: {error_msg}", details={"duration": duration}
+        )
 
 
 @app.get("/api/ibm/job/{job_id}", response_model=IBMJobStatusResponse)
@@ -317,7 +397,7 @@ async def get_ibm_job(request: Request, job_id: str, token: str):
     """Get IBM Quantum job status with caching and logging"""
     try:
         print(f"[IBM] 🔍 Checking job status: {job_id}")
-        
+
         # Check cache first (short TTL for job status)
         cache_key = f"ibm_job:{job_id}"
         cached_result = await quantum_cache.backend.get(cache_key)
@@ -336,18 +416,22 @@ async def get_ibm_job(request: Request, job_id: str, token: str):
         if result.get("success"):
             status = result.get("status", "unknown")
             print(f"[IBM] 📋 Job status: {status}")
-            
+
             if status == "DONE":
                 results = result.get("results", {})
-                print(f"[IBM] ✅ Job completed! Results: {len(results)} measurement outcomes")
+                print(
+                    f"[IBM] ✅ Job completed! Results: {len(results)} measurement outcomes"
+                )
                 if results:
                     # Print first few results
                     sample_results = dict(list(results.items())[:5])
                     print(f"[IBM] 📊 Sample results: {sample_results}")
-            
+
             await quantum_cache.backend.set(cache_key, result, ttl=30)
 
-        await metrics_collector.record_ibm_api_call("job_status", result.get("success", False))
+        await metrics_collector.record_ibm_api_call(
+            "job_status", result.get("success", False)
+        )
 
         return IBMJobStatusResponse(**result)
 
@@ -355,7 +439,9 @@ async def get_ibm_job(request: Request, job_id: str, token: str):
         error_msg = str(e)
         print(f"[IBM] ❌ Job status error: {error_msg}")
         container.logger.error("ibm_job_status_error", job_id=job_id, error=error_msg)
-        raise IBMQuantumError(f"Failed to get job status: {error_msg}", details={"job_id": job_id})
+        raise IBMQuantumError(
+            f"Failed to get job status: {error_msg}", details={"job_id": job_id}
+        )
 
 
 # Keep existing endpoints for backward compat
@@ -367,6 +453,7 @@ async def get_ibm_job(request: Request, job_id: str, token: str):
 # Enhanced Circuit Execution Endpoint
 # ============================================================================
 
+
 @app.post("/api/quantum/execute", response_model=QuantumExecutionResult)
 @limit_simulation_requests()
 async def execute_circuit(request: QuantumExecutionRequest):
@@ -374,16 +461,17 @@ async def execute_circuit(request: QuantumExecutionRequest):
     start_time = time.time()
 
     try:
-        container.logger.info("circuit_execution_started",
-                            backend=request.backend,
-                            num_qubits=request.circuit.numQubits,
-                            num_gates=len(request.circuit.gates),
-                            shots=request.shots)
+        container.logger.info(
+            "circuit_execution_started",
+            backend=request.backend,
+            num_qubits=request.circuit.numQubits,
+            num_gates=len(request.circuit.gates),
+            shots=request.shots,
+        )
 
         # Check cache for simulation results
         cached_result = await quantum_cache.get_simulation_result(
-            request.circuit.dict(),
-            request.backend.value
+            request.circuit.dict(), request.backend.value
         )
 
         if cached_result:
@@ -411,18 +499,18 @@ async def execute_circuit(request: QuantumExecutionRequest):
             custom_state=request.customState,
             optimization_level=1,
             enable_transpilation=True,
-            backend_name=request.backend.value
+            backend_name=request.backend.value,
         )
 
         # Execute using unified API
-        result = await QuantumAPI().execute_quantum_circuit(request.circuit.dict(), options)
+        result = await QuantumAPI().execute_quantum_circuit(
+            request.circuit.dict(), options
+        )
 
         # Record metrics
         duration = time.time() - start_time
         await metrics_collector.record_simulation(
-            request.backend.value,
-            result.success,
-            duration
+            request.backend.value, result.success, duration
         )
 
         # Format response
@@ -430,7 +518,7 @@ async def execute_circuit(request: QuantumExecutionRequest):
             "success": result.success,
             "method": result.method,
             "backend": result.backend,
-            "executionTime": result.execution_time
+            "executionTime": result.execution_time,
         }
 
         if result.qubit_results:
@@ -447,26 +535,30 @@ async def execute_circuit(request: QuantumExecutionRequest):
         # Cache successful results
         if result.success and not result.job_id:  # Don't cache async jobs
             await quantum_cache.set_simulation_result(
-                request.circuit.dict(),
-                request.backend.value,
-                response_data
+                request.circuit.dict(), request.backend.value, response_data
             )
 
-        container.logger.info("circuit_execution_completed",
-                            success=result.success,
-                            duration=duration,
-                            backend=request.backend.value)
+        container.logger.info(
+            "circuit_execution_completed",
+            success=result.success,
+            duration=duration,
+            backend=request.backend.value,
+        )
 
         return QuantumExecutionResult(**response_data)
 
     except Exception as e:
         duration = time.time() - start_time
-        await metrics_collector.record_simulation(request.backend.value, False, duration)
+        await metrics_collector.record_simulation(
+            request.backend.value, False, duration
+        )
 
-        container.logger.error("circuit_execution_failed",
-                             error=str(e),
-                             backend=request.backend.value,
-                             duration=duration)
+        container.logger.error(
+            "circuit_execution_failed",
+            error=str(e),
+            backend=request.backend.value,
+            duration=duration,
+        )
 
         raise CircuitExecutionError(
             f"Failed to execute quantum circuit: {str(e)}",
@@ -474,8 +566,8 @@ async def execute_circuit(request: QuantumExecutionRequest):
                 "backend": request.backend.value,
                 "duration": duration,
                 "num_qubits": request.circuit.numQubits,
-                "num_gates": len(request.circuit.gates)
-            }
+                "num_gates": len(request.circuit.gates),
+            },
         )
 
 
@@ -491,7 +583,11 @@ async def execute_circuit_ts_port(data: Dict[str, Any]):
     try:
         circuit_data = data.get("circuit")
         initial_state = data.get("initialState")
-        if not circuit_data or "numQubits" not in circuit_data or "gates" not in circuit_data:
+        if (
+            not circuit_data
+            or "numQubits" not in circuit_data
+            or "gates" not in circuit_data
+        ):
             raise HTTPException(status_code=400, detail="Invalid circuit payload")
 
         gates = [
@@ -519,7 +615,9 @@ async def execute_circuit_ts_port(data: Dict[str, Any]):
         raise
     except Exception as e:
         container.logger.error("ts_port_execution_error", error=str(e))
-        raise CircuitExecutionError(f"TS-port execution failed: {str(e)}", details={"backend": "ts-port"})
+        raise CircuitExecutionError(
+            f"TS-port execution failed: {str(e)}", details={"backend": "ts-port"}
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -542,7 +640,10 @@ async def execute_circuit_statevector(data: Dict[str, Any]):
             }
         )
         if not result.get("success"):
-            raise HTTPException(status_code=500, detail=result.get("error", "Statevector execution failed"))
+            raise HTTPException(
+                status_code=500,
+                detail=result.get("error", "Statevector execution failed"),
+            )
         return {
             "success": True,
             "backend": "statevector",
@@ -552,7 +653,11 @@ async def execute_circuit_statevector(data: Dict[str, Any]):
         raise
     except Exception as e:
         container.logger.error("statevector_execution_error", error=str(e))
-        raise CircuitExecutionError(f"Statevector execution failed: {str(e)}", details={"backend": "statevector"})
+        raise CircuitExecutionError(
+            f"Statevector execution failed: {str(e)}",
+            details={"backend": "statevector"},
+        )
+
 
 # Get available backends
 @app.get("/api/quantum/backends")
@@ -560,16 +665,41 @@ async def get_backends():
     try:
         # Return only local backends
         default_backends = [
-            {"id": "local", "name": "Local Simulator", "status": "available", "qubits": 24, "type": "simulator"},
-            {"id": "custom_simulator", "name": "Custom Simulator", "status": "available", "qubits": 20, "type": "simulator"},
-            {"id": "simulator_statevector", "name": "Statevector Simulator", "status": "available", "qubits": 24, "type": "simulator"},
-            {"id": "simulator_mps", "name": "Matrix Product State Simulator", "status": "available", "qubits": 100, "type": "simulator"}
+            {
+                "id": "local",
+                "name": "Local Simulator",
+                "status": "available",
+                "qubits": 24,
+                "type": "simulator",
+            },
+            {
+                "id": "custom_simulator",
+                "name": "Custom Simulator",
+                "status": "available",
+                "qubits": 20,
+                "type": "simulator",
+            },
+            {
+                "id": "simulator_statevector",
+                "name": "Statevector Simulator",
+                "status": "available",
+                "qubits": 24,
+                "type": "simulator",
+            },
+            {
+                "id": "simulator_mps",
+                "name": "Matrix Product State Simulator",
+                "status": "available",
+                "qubits": 100,
+                "type": "simulator",
+            },
         ]
         return {"success": True, "backends": default_backends}
 
     except Exception as e:
         container.logger.error("backend_listing_error", error=str(e))
         return {"success": True, "backends": []}
+
 
 # Job management endpoints (REMOVED)
 
@@ -578,6 +708,7 @@ async def get_backends():
 # Enhanced AI Assistant Endpoint
 # ============================================================================
 
+
 @app.post("/api/ai/ask", response_model=AIQuestionResponse)
 @limit_general_requests()
 async def ask_ai(request: AIQuestionRequest):
@@ -585,7 +716,9 @@ async def ask_ai(request: AIQuestionRequest):
     start_time = time.time()
 
     try:
-        container.logger.info("ai_question_received", question_length=len(request.question))
+        container.logger.info(
+            "ai_question_received", question_length=len(request.question)
+        )
 
         # Check cache first
         cached_answer = await quantum_cache.get_ai_response(request.question)
@@ -596,7 +729,7 @@ async def ask_ai(request: AIQuestionRequest):
                 success=True,
                 question=request.question,
                 answer=cached_answer,
-                timestamp=datetime.utcnow().isoformat()
+                timestamp=datetime.utcnow().isoformat(),
             )
 
         await metrics_collector.record_cache_miss("ai_responses")
@@ -609,30 +742,33 @@ async def ask_ai(request: AIQuestionRequest):
 
         duration = time.time() - start_time
 
-        container.logger.info("ai_question_answered",
-                            duration=duration,
-                            answer_length=len(answer))
+        container.logger.info(
+            "ai_question_answered", duration=duration, answer_length=len(answer)
+        )
 
         return AIQuestionResponse(
             success=True,
             question=request.question,
             answer=answer,
-            timestamp=datetime.utcnow().isoformat()
+            timestamp=datetime.utcnow().isoformat(),
         )
 
     except Exception as e:
         duration = time.time() - start_time
-        container.logger.error("ai_question_failed",
-                             error=str(e),
-                             duration=duration,
-                             question_length=len(request.question))
+        container.logger.error(
+            "ai_question_failed",
+            error=str(e),
+            duration=duration,
+            question_length=len(request.question),
+        )
 
         raise QuantumAPIError(
             "Failed to get AI response" if not config.debug else str(e),
             status_code=500,
             error_code="AI_SERVICE_ERROR",
-            details={"question_length": len(request.question), "duration": duration}
+            details={"question_length": len(request.question), "duration": duration},
         )
+
 
 # Download Dataset Endpoint
 @app.post("/api/download-dataset")
@@ -643,15 +779,21 @@ async def download_dataset():
         return {
             "success": True,
             "path": path,
-            "message": "Dataset downloaded successfully."
+            "message": "Dataset downloaded successfully.",
         }
     except Exception as e:
         container.logger.error("dataset_download_error", error=str(e))
-        raise QuantumAPIError(f"Dataset download failed: {str(e)}", status_code=500, error_code="DATASET_ERROR")
+        raise QuantumAPIError(
+            f"Dataset download failed: {str(e)}",
+            status_code=500,
+            error_code="DATASET_ERROR",
+        )
+
 
 # ============================================================================
 # QUANTUM MACHINE LEARNING ENDPOINTS
 # ============================================================================
+
 
 # Feature Map Operations
 @app.post("/api/quantum-ml/feature-maps")
@@ -670,7 +812,9 @@ async def create_feature_map(data: Dict[str, Any]):
         elif map_type.lower() == "amplitude":
             feature_map = AmplitudeEncoding(num_qubits)
         else:
-            raise HTTPException(status_code=400, detail=f"Unsupported feature map type: {map_type}")
+            raise HTTPException(
+                status_code=400, detail=f"Unsupported feature map type: {map_type}"
+            )
 
         # Encode data
         circuit = feature_map.encode(input_data)
@@ -680,17 +824,25 @@ async def create_feature_map(data: Dict[str, Any]):
             "featureMap": {
                 "name": feature_map.name,
                 "description": feature_map.description,
-                "numQubits": num_qubits
+                "numQubits": num_qubits,
             },
             "circuit": {
                 "numQubits": circuit.num_qubits,
-                "gates": [{"name": g.name, "qubits": g.qubits, "parameters": g.parameters} for g in circuit.gates]
-            }
+                "gates": [
+                    {"name": g.name, "qubits": g.qubits, "parameters": g.parameters}
+                    for g in circuit.gates
+                ],
+            },
         }
 
     except Exception as e:
         container.logger.error("feature_map_error", error=str(e))
-        raise QuantumAPIError(f"Failed to create feature map: {str(e)}", status_code=500, error_code="ML_FEATURE_MAP_ERROR")
+        raise QuantumAPIError(
+            f"Failed to create feature map: {str(e)}",
+            status_code=500,
+            error_code="ML_FEATURE_MAP_ERROR",
+        )
+
 
 # Quantum Kernel Operations
 @app.post("/api/quantum-ml/kernels")
@@ -727,13 +879,18 @@ async def compute_quantum_kernel(data: Dict[str, Any]):
             "kernel": {
                 "type": kernel.name,
                 "value": kernel_value,
-                "featureMap": feature_map.name
-            }
+                "featureMap": feature_map.name,
+            },
         }
 
     except Exception as e:
         container.logger.error("quantum_kernel_error", error=str(e))
-        raise QuantumAPIError(f"Failed to compute quantum kernel: {str(e)}", status_code=500, error_code="ML_KERNEL_ERROR")
+        raise QuantumAPIError(
+            f"Failed to compute quantum kernel: {str(e)}",
+            status_code=500,
+            error_code="ML_KERNEL_ERROR",
+        )
+
 
 # Variational Quantum Circuit Operations
 @app.post("/api/quantum-ml/variational-circuits")
@@ -747,9 +904,7 @@ async def create_variational_circuit(data: Dict[str, Any]):
 
         # Create variational layer
         variational_layer = VariationalLayer(
-            num_qubits=num_qubits,
-            num_layers=num_layers,
-            ansatz_type=ansatz_type
+            num_qubits=num_qubits, num_layers=num_layers, ansatz_type=ansatz_type
         )
 
         # Build circuit
@@ -759,19 +914,27 @@ async def create_variational_circuit(data: Dict[str, Any]):
             "success": True,
             "circuit": {
                 "numQubits": circuit.num_qubits,
-                "gates": [{"name": g.name, "qubits": g.qubits, "parameters": g.parameters} for g in circuit.gates],
-                "numParameters": variational_layer.num_parameters
+                "gates": [
+                    {"name": g.name, "qubits": g.qubits, "parameters": g.parameters}
+                    for g in circuit.gates
+                ],
+                "numParameters": variational_layer.num_parameters,
             },
             "layer": {
                 "name": variational_layer.name,
                 "description": variational_layer.description,
-                "numParameters": variational_layer.num_parameters
-            }
+                "numParameters": variational_layer.num_parameters,
+            },
         }
 
     except Exception as e:
         container.logger.error("variational_circuit_error", error=str(e))
-        raise QuantumAPIError(f"Failed to create variational circuit: {str(e)}", status_code=500, error_code="ML_VARIATIONAL_ERROR")
+        raise QuantumAPIError(
+            f"Failed to create variational circuit: {str(e)}",
+            status_code=500,
+            error_code="ML_VARIATIONAL_ERROR",
+        )
+
 
 # Variational Quantum Classifier
 @app.post("/api/quantum-ml/vqc/train")
@@ -805,7 +968,7 @@ async def train_vqc(data: Dict[str, Any]):
             feature_map=feature_map,
             variational_layer=variational_layer,
             measurement_layer=measurement_layer,
-            max_iterations=max_iterations
+            max_iterations=max_iterations,
         )
 
         # Create and train VQC
@@ -823,15 +986,20 @@ async def train_vqc(data: Dict[str, Any]):
                 "type": "VQC",
                 "featureMap": feature_map.name,
                 "numQubits": num_qubits,
-                "numParameters": variational_layer.num_parameters
+                "numParameters": variational_layer.num_parameters,
             },
             "training": training_result,
-            "parameters": vqc.parameters
+            "parameters": vqc.parameters,
         }
 
     except Exception as e:
         container.logger.error("vqc_training_error", error=str(e))
-        raise QuantumAPIError(f"Failed to train VQC: {str(e)}", status_code=500, error_code="ML_VQC_TRAINING_ERROR")
+        raise QuantumAPIError(
+            f"Failed to train VQC: {str(e)}",
+            status_code=500,
+            error_code="ML_VQC_TRAINING_ERROR",
+        )
+
 
 @app.post("/api/quantum-ml/vqc/predict")
 async def predict_vqc(data: Dict[str, Any]):
@@ -854,7 +1022,7 @@ async def predict_vqc(data: Dict[str, Any]):
         config = VQCConfig(
             feature_map=feature_map,
             variational_layer=variational_layer,
-            measurement_layer=measurement_layer
+            measurement_layer=measurement_layer,
         )
 
         # Create model and set parameters
@@ -864,18 +1032,21 @@ async def predict_vqc(data: Dict[str, Any]):
         # Make prediction
         prediction = vqc.predict(input_data)
 
-        return {
-            "success": True,
-            "prediction": prediction
-        }
+        return {"success": True, "prediction": prediction}
 
     except Exception as e:
         container.logger.error("vqc_prediction_error", error=str(e))
-        raise QuantumAPIError(f"Failed to make VQC prediction: {str(e)}", status_code=500, error_code="ML_VQC_PREDICTION_ERROR")
+        raise QuantumAPIError(
+            f"Failed to make VQC prediction: {str(e)}",
+            status_code=500,
+            error_code="ML_VQC_PREDICTION_ERROR",
+        )
+
 
 # ============================================================================
 # ASYNCHRONOUS QUANTUM EXECUTION ENDPOINTS
 # ============================================================================
+
 
 # Asynchronous Circuit Execution
 @app.post("/api/quantum/async/execute")
@@ -894,10 +1065,7 @@ async def execute_circuit_async(data: Dict[str, Any]):
             message = {
                 "type": "simulate",
                 "id": task_id,
-                "data": {
-                    "circuit": circuit,
-                    "initialState": initial_state
-                }
+                "data": {"circuit": circuit, "initialState": initial_state},
             }
 
             # Execute asynchronously
@@ -910,7 +1078,7 @@ async def execute_circuit_async(data: Dict[str, Any]):
                 "success": True,
                 "taskId": task_id,
                 "result": response.data,
-                "status": "completed"
+                "status": "completed",
             }
 
     except (HTTPException, QuantumAPIError):
@@ -938,10 +1106,10 @@ async def compute_reduced(data: Dict[str, Any]):
         from quantum_simulation import simulate_circuit as simulate_circuit_py
 
         circuit_obj = parse_quantum_code(code)
-        
+
         # Simulate locally (Python density matrix simulator)
         result = simulate_circuit_py(circuit_obj)
-        
+
         # Serialize for frontend
         reduced_states = []
         if result.reducedStates:
@@ -951,7 +1119,7 @@ async def compute_reduced(data: Dict[str, Any]):
                     "blochVector": state.blochVector,
                     "purity": state.purity,
                     "entanglement": state.entanglement,
-                    "superposition": state.superposition
+                    "superposition": state.superposition,
                 }
                 for state in result.reducedStates
             ]
@@ -960,24 +1128,21 @@ async def compute_reduced(data: Dict[str, Any]):
         frontend_circuit = {
             "numQubits": circuit_obj.num_qubits,
             "gates": [
-                {
-                    "name": g.name,
-                    "qubits": g.qubits,
-                    "parameters": g.parameters
-                }
+                {"name": g.name, "qubits": g.qubits, "parameters": g.parameters}
                 for g in circuit_obj.gates
-            ]
+            ],
         }
 
         return {
             "success": True,
             "circuit": frontend_circuit,
-            "reducedStates": reduced_states
+            "reducedStates": reduced_states,
         }
 
     except Exception as e:
         container.logger.error("reduced_state_error", error=str(e))
         raise CircuitExecutionError(f"Failed to compute reduced states: {str(e)}")
+
 
 # Worker Pool Status
 @app.get("/api/quantum/workers/status")
@@ -986,42 +1151,53 @@ async def get_worker_status():
     try:
         from quantum_worker import QuantumWorkerPool
         from container import container
-        
+
         # Get worker pool instance
         pool_instance = container.worker_pool()
-        
+
         # Get pool status
-        pool_status = pool_instance.get_pool_status() if hasattr(pool_instance, 'get_pool_status') else {}
-        
+        pool_status = (
+            pool_instance.get_pool_status()
+            if hasattr(pool_instance, "get_pool_status")
+            else {}
+        )
+
         return {
             "success": True,
             "pool": pool_status,
             "workers": {
                 "active": pool_status.get("active_workers", 0),
                 "total": pool_status.get("num_workers", 0),
-                "healthy": pool_status.get("active_workers", 0)
+                "healthy": pool_status.get("active_workers", 0),
             },
             "queue": {
                 "pending": pool_status.get("queue_size", 0),
-                "processing": sum(pool_status.get("worker_load", {}).values())
+                "processing": sum(pool_status.get("worker_load", {}).values()),
             },
             "statistics": {
                 "tasks_completed": pool_status.get("total_tasks_completed", 0),
                 "tasks_failed": pool_status.get("total_tasks_failed", 0),
                 "success_rate": (
-                    pool_status.get("total_tasks_completed", 0) / 
-                    max(pool_status.get("total_tasks_completed", 0) + pool_status.get("total_tasks_failed", 0), 1) * 100
-                )
-            }
+                    pool_status.get("total_tasks_completed", 0)
+                    / max(
+                        pool_status.get("total_tasks_completed", 0)
+                        + pool_status.get("total_tasks_failed", 0),
+                        1,
+                    )
+                    * 100
+                ),
+            },
         }
 
     except Exception as e:
         container.logger.error("worker_status_error", error=str(e))
         raise WorkerPoolError(f"Failed to get worker status: {str(e)}")
 
+
 # ============================================================================
 # DATA PREPROCESSING ENDPOINTS
 # ============================================================================
+
 
 # Data Preprocessing
 @app.post("/api/quantum-ml/preprocessing")
@@ -1036,7 +1212,7 @@ async def preprocess_data(data: Dict[str, Any]):
             DataSample(
                 features=point.get("features", []),
                 label=point.get("label"),
-                target=point.get("target")
+                target=point.get("target"),
             )
             for point in raw_data
         ]
@@ -1053,7 +1229,7 @@ async def preprocess_data(data: Dict[str, Any]):
                 "features": sample.features,
                 "label": sample.label,
                 "target": sample.target,
-                "metadata": sample.metadata
+                "metadata": sample.metadata,
             }
             for sample in processed_samples
         ]
@@ -1062,12 +1238,17 @@ async def preprocess_data(data: Dict[str, Any]):
             "success": True,
             "processedData": processed_data,
             "statistics": preprocessor.get_statistics(),
-            "config": preprocessor.export_config()
+            "config": preprocessor.export_config(),
         }
 
     except Exception as e:
         container.logger.error("data_preprocessing_error", error=str(e))
-        raise QuantumAPIError(f"Failed to preprocess data: {str(e)}", status_code=500, error_code="ML_PREPROCESSING_ERROR")
+        raise QuantumAPIError(
+            f"Failed to preprocess data: {str(e)}",
+            status_code=500,
+            error_code="ML_PREPROCESSING_ERROR",
+        )
+
 
 # Generate Synthetic Datasets
 @app.post("/api/quantum-ml/datasets/generate")
@@ -1083,14 +1264,21 @@ async def generate_dataset(data: Dict[str, Any]):
         elif dataset_type == "regression":
             features, labels = generate_regression_dataset(subtype, num_samples)
         else:
-            raise HTTPException(status_code=400, detail=f"Unsupported dataset type: {dataset_type}")
+            raise HTTPException(
+                status_code=400, detail=f"Unsupported dataset type: {dataset_type}"
+            )
 
         # Convert to expected format
         dataset = [
             {
                 "features": feat,
-                "label": int(label) if isinstance(label, (int, float)) and dataset_type == "classification" else label,
-                "target": label if dataset_type == "regression" else None
+                "label": (
+                    int(label)
+                    if isinstance(label, (int, float))
+                    and dataset_type == "classification"
+                    else label
+                ),
+                "target": label if dataset_type == "regression" else None,
             }
             for feat, label in zip(features, labels)
         ]
@@ -1100,14 +1288,19 @@ async def generate_dataset(data: Dict[str, Any]):
             "dataset": dataset,
             "type": dataset_type,
             "subtype": subtype,
-            "numSamples": num_samples
+            "numSamples": num_samples,
         }
 
     except (HTTPException, QuantumAPIError):
         raise
     except Exception as e:
         container.logger.error("dataset_generation_error", error=str(e))
-        raise QuantumAPIError(f"Failed to generate dataset: {str(e)}", status_code=500, error_code="ML_DATASET_ERROR")
+        raise QuantumAPIError(
+            f"Failed to generate dataset: {str(e)}",
+            status_code=500,
+            error_code="ML_DATASET_ERROR",
+        )
+
 
 # Analyze Quantum Readiness
 @app.post("/api/quantum-ml/analysis/quantum-readiness")
@@ -1118,24 +1311,23 @@ async def analyze_quantum_readiness_endpoint(data: Dict[str, Any]):
 
         # Convert to DataSample format
         samples = [
-            DataSample(
-                features=point.get("features", []),
-                label=point.get("label")
-            )
+            DataSample(features=point.get("features", []), label=point.get("label"))
             for point in raw_data
         ]
 
         # Analyze quantum readiness
         analysis = analyze_quantum_readiness(samples)
 
-        return {
-            "success": True,
-            "analysis": analysis
-        }
+        return {"success": True, "analysis": analysis}
 
     except Exception as e:
         container.logger.error("quantum_readiness_error", error=str(e))
-        raise QuantumAPIError(f"Failed to analyze quantum readiness: {str(e)}", status_code=500, error_code="ML_ANALYSIS_ERROR")
+        raise QuantumAPIError(
+            f"Failed to analyze quantum readiness: {str(e)}",
+            status_code=500,
+            error_code="ML_ANALYSIS_ERROR",
+        )
+
 
 # Model Evaluation
 @app.post("/api/quantum-ml/evaluation")
@@ -1152,7 +1344,10 @@ async def evaluate_model(data: Dict[str, Any]):
         elif evaluation_type == "regression":
             metrics = evaluate_regression(predictions, targets)
         else:
-            raise HTTPException(status_code=400, detail=f"Unsupported evaluation type: {evaluation_type}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported evaluation type: {evaluation_type}",
+            )
 
         return {
             "success": True,
@@ -1162,29 +1357,35 @@ async def evaluate_model(data: Dict[str, Any]):
                 "recall": metrics.recall,
                 "f1Score": metrics.f1_score,
                 "mse": metrics.mse,
-                "mae": metrics.mae
-            }
+                "mae": metrics.mae,
+            },
         }
 
     except (HTTPException, QuantumAPIError):
         raise
     except Exception as e:
         container.logger.error("model_evaluation_error", error=str(e))
-        raise QuantumAPIError(f"Failed to evaluate model: {str(e)}", status_code=500, error_code="ML_EVALUATION_ERROR")
+        raise QuantumAPIError(
+            f"Failed to evaluate model: {str(e)}",
+            status_code=500,
+            error_code="ML_EVALUATION_ERROR",
+        )
+
 
 # Helper functions
 async def get_backend_info(token: str, backend_id: str) -> Dict[str, Any]:
     """Get backend information from IBM Quantum"""
     try:
         import aiohttp
+
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 f"https://api.quantum.ibm.com/runtime/backends/{backend_id}",
                 headers={
                     "Authorization": f"Bearer {token}",
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
                 },
-                timeout=aiohttp.ClientTimeout(total=10)
+                timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
                 if response.status >= 400:
                     raise Exception(f"Backend info request failed: {response.status}")
@@ -1195,22 +1396,38 @@ async def get_backend_info(token: str, backend_id: str) -> Dict[str, Any]:
                     "name": backend.get("name", backend_id),
                     "status": backend.get("status", "available"),
                     "qubits": backend.get("n_qubits", backend.get("num_qubits", 0)),
-                    "type": "simulator" if backend.get("simulator") else "hardware"
+                    "type": "simulator" if backend.get("simulator") else "hardware",
                 }
     except Exception as e:
         print(f"Backend info error: {e}")
 
         # Return default info for common backends
         default_backends = {
-            "ibmq_qasm_simulator": {"name": "IBM QASM Simulator", "qubits": 32, "type": "simulator"},
-            "simulator_statevector": {"name": "Statevector Simulator", "qubits": 24, "type": "simulator"},
-            "simulator_mps": {"name": "Matrix Product State Simulator", "qubits": 100, "type": "simulator"},
+            "ibmq_qasm_simulator": {
+                "name": "IBM QASM Simulator",
+                "qubits": 32,
+                "type": "simulator",
+            },
+            "simulator_statevector": {
+                "name": "Statevector Simulator",
+                "qubits": 24,
+                "type": "simulator",
+            },
+            "simulator_mps": {
+                "name": "Matrix Product State Simulator",
+                "qubits": 100,
+                "type": "simulator",
+            },
             "ibmq_manila": {"name": "IBM Manila", "qubits": 5, "type": "hardware"},
             "ibmq_lima": {"name": "IBM Lima", "qubits": 5, "type": "hardware"},
             "ibmq_belem": {"name": "IBM Belem", "qubits": 5, "type": "hardware"},
             "ibmq_quito": {"name": "IBM Quito", "qubits": 5, "type": "hardware"},
             "ibm_brisbane": {"name": "IBM Brisbane", "qubits": 127, "type": "hardware"},
-            "ibm_sherbrooke": {"name": "IBM Sherbrooke", "qubits": 127, "type": "hardware"}
+            "ibm_sherbrooke": {
+                "name": "IBM Sherbrooke",
+                "qubits": 127,
+                "type": "hardware",
+            },
         }
 
         return {
@@ -1218,23 +1435,27 @@ async def get_backend_info(token: str, backend_id: str) -> Dict[str, Any]:
             "name": default_backends.get(backend_id, {}).get("name", backend_id),
             "status": "available",
             "qubits": default_backends.get(backend_id, {}).get("qubits", 0),
-            "type": default_backends.get(backend_id, {}).get("type", "simulator")
+            "type": default_backends.get(backend_id, {}).get("type", "simulator"),
         }
 
-async def get_available_backends(token: Optional[str] = None) -> tuple[List[Dict[str, Any]], bool]:
+
+async def get_available_backends(
+    token: Optional[str] = None,
+) -> tuple[List[Dict[str, Any]], bool]:
     """Get available backends from IBM Quantum"""
     try:
         effective_token = token if token is not None else os.getenv("IBM_QUANTUM_TOKEN")
 
         import aiohttp
+
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 "https://api.quantum.ibm.com/runtime/backends",
                 headers={
                     "Authorization": f"Bearer {effective_token}",
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
                 },
-                timeout=aiohttp.ClientTimeout(total=5)
+                timeout=aiohttp.ClientTimeout(total=5),
             ) as response:
                 if response.status >= 400:
                     raise Exception(f"Backend listing failed: {response.status}")
@@ -1246,7 +1467,7 @@ async def get_available_backends(token: Optional[str] = None) -> tuple[List[Dict
                         "name": backend.get("name", backend.get("id", "")),
                         "status": backend.get("status", "available"),
                         "qubits": backend.get("n_qubits", backend.get("num_qubits", 0)),
-                        "type": "simulator" if backend.get("simulator") else "hardware"
+                        "type": "simulator" if backend.get("simulator") else "hardware",
                     }
                     for backend in backends_data
                 ]
@@ -1257,30 +1478,86 @@ async def get_available_backends(token: Optional[str] = None) -> tuple[List[Dict
 
         # Return default backends
         default_backends = [
-            {"id": "ibmq_qasm_simulator", "name": "IBM QASM Simulator", "status": "available", "qubits": 32, "type": "simulator"},
-            {"id": "simulator_statevector", "name": "Statevector Simulator", "status": "available", "qubits": 24, "type": "simulator"},
-            {"id": "simulator_mps", "name": "Matrix Product State Simulator", "status": "available", "qubits": 100, "type": "simulator"},
-            {"id": "ibmq_manila", "name": "IBM Manila", "status": "available", "qubits": 5, "type": "hardware"},
-            {"id": "ibmq_lima", "name": "IBM Lima", "status": "available", "qubits": 5, "type": "hardware"},
-            {"id": "ibmq_belem", "name": "IBM Belem", "status": "available", "qubits": 5, "type": "hardware"},
-            {"id": "ibmq_quito", "name": "IBM Quito", "status": "available", "qubits": 5, "type": "hardware"},
-            {"id": "ibm_brisbane", "name": "IBM Brisbane", "status": "available", "qubits": 127, "type": "hardware"},
-            {"id": "ibm_sherbrooke", "name": "IBM Sherbrooke", "status": "available", "qubits": 127, "type": "hardware"}
+            {
+                "id": "ibmq_qasm_simulator",
+                "name": "IBM QASM Simulator",
+                "status": "available",
+                "qubits": 32,
+                "type": "simulator",
+            },
+            {
+                "id": "simulator_statevector",
+                "name": "Statevector Simulator",
+                "status": "available",
+                "qubits": 24,
+                "type": "simulator",
+            },
+            {
+                "id": "simulator_mps",
+                "name": "Matrix Product State Simulator",
+                "status": "available",
+                "qubits": 100,
+                "type": "simulator",
+            },
+            {
+                "id": "ibmq_manila",
+                "name": "IBM Manila",
+                "status": "available",
+                "qubits": 5,
+                "type": "hardware",
+            },
+            {
+                "id": "ibmq_lima",
+                "name": "IBM Lima",
+                "status": "available",
+                "qubits": 5,
+                "type": "hardware",
+            },
+            {
+                "id": "ibmq_belem",
+                "name": "IBM Belem",
+                "status": "available",
+                "qubits": 5,
+                "type": "hardware",
+            },
+            {
+                "id": "ibmq_quito",
+                "name": "IBM Quito",
+                "status": "available",
+                "qubits": 5,
+                "type": "hardware",
+            },
+            {
+                "id": "ibm_brisbane",
+                "name": "IBM Brisbane",
+                "status": "available",
+                "qubits": 127,
+                "type": "hardware",
+            },
+            {
+                "id": "ibm_sherbrooke",
+                "name": "IBM Sherbrooke",
+                "status": "available",
+                "qubits": 127,
+                "type": "hardware",
+            },
         ]
         return default_backends, True
+
 
 async def get_ibm_job_status(token: str, job_id: str) -> Dict[str, Any]:
     """Get IBM Quantum job status"""
     try:
         import aiohttp
+
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 f"https://api.quantum.ibm.com/runtime/jobs/{job_id}",
                 headers={
                     "Authorization": f"Bearer {token}",
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
                 },
-                timeout=aiohttp.ClientTimeout(total=10)
+                timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
                 if response.status == 404:
                     return {
@@ -1289,7 +1566,7 @@ async def get_ibm_job_status(token: str, job_id: str) -> Dict[str, Any]:
                         "statusMessage": "Job completed successfully",
                         "progress": 100,
                         "estimatedTime": None,
-                        "results": None
+                        "results": None,
                     }
                 elif response.status >= 400:
                     raise Exception(f"Job status request failed: {response.status}")
@@ -1299,9 +1576,11 @@ async def get_ibm_job_status(token: str, job_id: str) -> Dict[str, Any]:
                     "jobId": job.get("id", job_id),
                     "status": map_runtime_status(job.get("status", "RUNNING")),
                     "statusMessage": get_status_message(job.get("status", "RUNNING")),
-                    "progress": job.get("progress", 100 if job.get("status") == "COMPLETED" else 50),
+                    "progress": job.get(
+                        "progress", 100 if job.get("status") == "COMPLETED" else 50
+                    ),
                     "estimatedTime": job.get("estimated_time"),
-                    "results": job.get("results")
+                    "results": job.get("results"),
                 }
 
     except Exception as e:
@@ -1313,21 +1592,23 @@ async def get_ibm_job_status(token: str, job_id: str) -> Dict[str, Any]:
             "statusMessage": "Job is running on IBM Quantum hardware",
             "progress": 50,
             "estimatedTime": None,
-            "results": None
+            "results": None,
         }
+
 
 async def get_ibm_job_result(token: str, job_id: str) -> Dict[str, Any]:
     """Get IBM Quantum job result"""
     try:
         import aiohttp
+
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 f"https://api.quantum.ibm.com/runtime/jobs/{job_id}/results",
                 headers={
                     "Authorization": f"Bearer {token}",
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
                 },
-                timeout=aiohttp.ClientTimeout(total=10)
+                timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
                 if response.status >= 400:
                     raise Exception(f"Job result request failed: {response.status}")
@@ -1336,7 +1617,7 @@ async def get_ibm_job_result(token: str, job_id: str) -> Dict[str, Any]:
                     "jobId": job_id,
                     "results": await response.json(),
                     "executionTime": 0,  # Not available in Runtime API
-                    "backend": "unknown"
+                    "backend": "unknown",
                 }
 
     except Exception as e:
@@ -1347,21 +1628,23 @@ async def get_ibm_job_result(token: str, job_id: str) -> Dict[str, Any]:
             "results": None,
             "executionTime": 0,
             "backend": "unknown",
-            "error": "Results not available through Runtime API"
+            "error": "Results not available through Runtime API",
         }
+
 
 async def get_ibm_user_jobs(token: str) -> List[Dict[str, Any]]:
     """Get IBM Quantum user jobs"""
     try:
         import aiohttp
+
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 "https://api.quantum.ibm.com/runtime/jobs",
                 headers={
                     "Authorization": f"Bearer {token}",
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
                 },
-                timeout=aiohttp.ClientTimeout(total=10)
+                timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
                 if response.status >= 400:
                     raise Exception(f"User jobs request failed: {response.status}")
@@ -1372,9 +1655,13 @@ async def get_ibm_user_jobs(token: str) -> List[Dict[str, Any]]:
                         "jobId": job.get("id", job.get("job_id", "")),
                         "status": map_runtime_status(job.get("status", "RUNNING")),
                         "backend": job.get("backend", "unknown"),
-                        "createdAt": job.get("created_at", datetime.utcnow().isoformat()),
+                        "createdAt": job.get(
+                            "created_at", datetime.utcnow().isoformat()
+                        ),
                         "completedAt": job.get("completed_at"),
-                        "progress": job.get("progress", 100 if job.get("status") == "COMPLETED" else 50)
+                        "progress": job.get(
+                            "progress", 100 if job.get("status") == "COMPLETED" else 50
+                        ),
                     }
                     for job in jobs_data
                 ]
@@ -1382,6 +1669,7 @@ async def get_ibm_user_jobs(token: str) -> List[Dict[str, Any]]:
     except Exception as e:
         print(f"User jobs error: {e}")
         return []
+
 
 def map_runtime_status(runtime_status: str) -> str:
     """Map Runtime API status to our format"""
@@ -1393,9 +1681,10 @@ def map_runtime_status(runtime_status: str) -> str:
         "QUEUED": "QUEUED",
         "PENDING": "QUEUED",
         "DONE": "COMPLETED",
-        "ERROR": "FAILED"
+        "ERROR": "FAILED",
     }
     return status_map.get(runtime_status, "RUNNING")
+
 
 def get_status_message(status: str) -> str:
     """Get status message for a given status"""
@@ -1414,9 +1703,10 @@ def get_status_message(status: str) -> str:
         "VALIDATING": "Job is being validated",
         "QUEUED_REMOTE": "Job queued on remote backend",
         "RUNNING_REMOTE": "Job running on remote backend",
-        "COMPLETED_REMOTE": "Job completed on remote backend"
+        "COMPLETED_REMOTE": "Job completed on remote backend",
     }
     return messages.get(status, "Job status unknown")
+
 
 # ============================================================================
 # Enhanced Error Handling
@@ -1428,11 +1718,12 @@ from error_handling import (
     CircuitExecutionError,
     IBMQuantumError,
     CacheError,
-    WorkerPoolError
+    WorkerPoolError,
 )
 
 # Setup comprehensive error handlers
 setup_error_handlers(app)
+
 
 # ---------------------------------------------------------------------------
 # Quantum Medical Core Endpoints
@@ -1444,22 +1735,27 @@ async def load_drive_dataset(data: Dict[str, Any]):
         url = data.get("url")
         if not url:
             raise HTTPException(status_code=400, detail="URL is required")
-        
+
         # Download and parse
         df = download_csv_from_drive(url)
-        
+
         # Train model
         result = medical_core.train(df)
-        
+
         return {
             "success": True,
             "message": f"Successfully loaded {result['sample_count']} records",
-            "features": result['features'],
-            "classes": result['classes']
+            "features": result["features"],
+            "classes": result["classes"],
         }
     except Exception as e:
         container.logger.error("medical_drive_load_error", error=str(e))
-        raise QuantumAPIError(f"Failed to load medical dataset: {str(e)}", status_code=400, error_code="MEDICAL_LOAD_ERROR")
+        raise QuantumAPIError(
+            f"Failed to load medical dataset: {str(e)}",
+            status_code=400,
+            error_code="MEDICAL_LOAD_ERROR",
+        )
+
 
 @app.post("/api/medical/analyze")
 async def analyze_patient(data: Dict[str, Any]):
@@ -1468,25 +1764,34 @@ async def analyze_patient(data: Dict[str, Any]):
         patient_data = data.get("patientData")
         if not patient_data:
             raise HTTPException(status_code=400, detail="patientData is required")
-        
+
         result = medical_core.predict(patient_data)
-        
-        return {
-            "success": True,
-            "result": result
-        }
+
+        return {"success": True, "result": result}
     except Exception as e:
         container.logger.error("medical_analysis_error", error=str(e))
-        raise QuantumAPIError(f"Failed to analyze patient data: {str(e)}", status_code=400, error_code="MEDICAL_ANALYSIS_ERROR")
+        raise QuantumAPIError(
+            f"Failed to analyze patient data: {str(e)}",
+            status_code=400,
+            error_code="MEDICAL_ANALYSIS_ERROR",
+        )
+
 
 @app.get("/api/medical/status")
 async def get_medical_status():
     """Check if medical model is trained"""
     return {
         "isTrained": medical_core.dataset is not None,
-        "sampleCount": len(medical_core.dataset) if medical_core.dataset is not None else 0,
-        "classes": medical_core.dataset[medical_core.target].unique().tolist() if medical_core.dataset is not None else []
+        "sampleCount": (
+            len(medical_core.dataset) if medical_core.dataset is not None else 0
+        ),
+        "classes": (
+            medical_core.dataset[medical_core.target].unique().tolist()
+            if medical_core.dataset is not None
+            else []
+        ),
     }
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -1494,13 +1799,14 @@ async def startup_event():
     # Initialize database
     try:
         from database import init_database, create_tables
+
         init_database()
         await create_tables()
         container.logger.info("database_initialized_on_startup")
     except Exception as e:
         container.logger.error("database_init_failed", error=str(e))
         # Continue without database - it's optional
-    
+
     # Auto-load medical dataset if configured
     url = os.getenv("MEDICAL_DATASET_URL")
     if url:
@@ -1508,10 +1814,14 @@ async def startup_event():
         try:
             df = download_csv_from_drive(url)
             result = medical_core.train(df)
-            container.logger.info("medical_dataset_loaded", sample_count=result['sample_count'])
+            container.logger.info(
+                "medical_dataset_loaded", sample_count=result["sample_count"]
+            )
         except Exception as e:
             container.logger.warning("medical_dataset_load_failed", error=str(e))
-            print("WARNING: Failed to auto-load Medical Dataset. Please ensure MEDICAL_DATASET_URL points to a public CSV FILE (not folder).")
+            print(
+                "WARNING: Failed to auto-load Medical Dataset. Please ensure MEDICAL_DATASET_URL points to a public CSV FILE (not folder)."
+            )
 
 
 @app.on_event("shutdown")
@@ -1519,14 +1829,17 @@ async def shutdown_event():
     """Cleanup on shutdown"""
     try:
         from database import close_database
+
         await close_database()
         container.logger.info("database_closed_on_shutdown")
     except Exception as e:
         container.logger.error("database_shutdown_error", error=str(e))
 
+
 if __name__ == "__main__":
     import uvicorn
-    port = 3005 # Match frontend configuration
+
+    port = 3005  # Match frontend configuration
     print(f"Quantum Backend API running on port {port}")
     print(f"Health check: http://localhost:{port}/health")
     print(f"CORS enabled for: {os.getenv('FRONTEND_URL', 'http://localhost:5173')}")
